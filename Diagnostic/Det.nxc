@@ -1,0 +1,278 @@
+/*
+ ***************************************************************************************************
+ * MARS - the open source AR platform for Mindstorm https://github.com/ToCap/Mars
+ *
+ * Copyright (C) 2020  GC-MS Software (ThomTheCat)
+ *
+ * This source code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 as published by the
+ * Free Software Foundation; See <http://www.gnu.org/licenses/old-licenses/gpl-2.0.txt>.
+ *
+ *  Software distributed under the License is distributed on an "AS IS"
+ *  basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
+ *  License for the specific language governing rights and limitations
+ *  under the License.
+ ***************************************************************************************************
+*/
+
+#ifndef DET_NXC
+#define DET_NXC
+/**
+ * \defgroup Det
+ */
+
+/*
+ ***************************************************************************************************
+ * Includes
+ ***************************************************************************************************
+*/
+#include "Std_Types.h"
+#include "Sys.h"
+
+#include "Det.h"
+
+/*
+ ***************************************************************************************************
+ * Types
+ ***************************************************************************************************
+*/
+
+TYPEDEF struct Det_Entry_t
+{
+	uint16 moduleId;
+	uint8 instanceId;
+	uint8 apiId;
+	uint8 errorId;
+	
+};
+
+
+/*
+ ***************************************************************************************************
+ * Variables
+ ***************************************************************************************************
+*/
+
+/** \var Det_LckDevErrorHndl
+ *  \brief ???
+ *  \remark
+ */
+Sys_MutexType Det_LckDevErrorHndl;
+
+uint8 Det_stInit;
+
+#if (DET_ERROR_BUFFER_SIZE > 0)
+Det_Entry_t Det_xDevErrorBuffer_a[DET_ERROR_BUFFER_SIZE];
+#endif
+
+#if (DET_ERROR_BUFFER_SIZE > 0)
+uint8 Det_idxDevErrorEntry;
+#endif
+
+uint16 Det_ctDevError;
+
+
+/*
+ ***************************************************************************************************
+ * Services
+ ***************************************************************************************************
+*/
+/**
+ * \ingroup Det
+ * \brief	Return the version information of this module
+ * \param[out] versioninfo Pointer to where to store the version information of this module
+ * \return	None
+ * \see	None
+ * \par Autosar standard
+ * SWS_Det_00011, SWS_Det_00051, SWS_Det_00023
+*/
+#if (DET_VERSION_INFO_API == STD_ON)
+void Det_GetVersionInfo(P2VAR(Std_VersionInfoType) versioninfo)
+{
+		/* Copy module information */
+		versioninfo.vendorID = DET_VENDOR_ID;
+		versioninfo.moduleID = DET_MODULE_ID;
+		
+		/* Copy version information */
+		versioninfo.sw_major_version = DET_SW_MAJOR_VERSION;
+		versioninfo.sw_minor_version = DET_SW_MINOR_VERSION;
+		versioninfo.sw_patch_version = DET_SW_PATCH_VERSION;
+}
+#endif
+
+/**
+ * \ingroup Det
+ * Get the failed status of a DemComponent
+ *
+ *
+ * \param	ModuleId		Identification of caller module
+ * \param	InstanceId	
+ * \param	ApiId		
+ * \param	ErrorId
+ * \return	Std_ReturnType
+ *				E_OK: 
+ * 
+ * \see	None
+ * \par Autosar standard
+ * SWS_Det_00009, SWS_Det_00024, SWS_Det_00039, SWS_Det_00026, SWS_Det_00034
+*/
+Std_ReturnType Det_ReportError(uint16 ModuleId, uint8 InstanceId, uint8 ApiId, uint8 ErrorId)
+{
+	/* Declaration of local variables */
+	uint8 idxCurrEntry;					/**/
+
+	/* Initalisation of local variables */
+	idxCurrEntry = 0;/*dummy value to avoid compiler warning if Det is not activated*/
+	
+	
+	/* Check Det initialisation status */
+	if (Det_stInit == STD_INIT_STATE_INIT)
+	{
+		/* On Det is fully initialized, Enters critical section */
+		
+#if (DET_ERROR_BUFFER_SIZE > 0)
+
+		/* Enter critical section */
+		Sys_AcquireLock(Det_LckDevErrorHndl);
+		
+		/* Reserve current entry in table */
+		idxCurrEntry = Det_idxDevErrorEntry;/*copy current entry for quick access*/
+		Det_idxDevErrorEntry = ((Det_idxDevErrorEntry + 1) < DET_ERROR_BUFFER_SIZE) ? (Det_idxDevErrorEntry + 1) : 0;
+
+		/* Exit critical section */
+		Sys_ReleaseLock(Det_LckDevErrorHndl);
+		
+		/* Stores reported error */
+		Det_xDevErrorBuffer_a[idxCurrEntry].moduleId = ModuleId;
+		Det_xDevErrorBuffer_a[idxCurrEntry].instanceId = InstanceId;
+		Det_xDevErrorBuffer_a[idxCurrEntry].apiId = ApiId;
+		Det_xDevErrorBuffer_a[idxCurrEntry].errorId = ErrorId;
+		/* HINTS : Storage action could be done outside of critical section */
+#endif
+		
+		/* Increments count of development error */
+		Det_ctDevError ++;
+		/* HINTS : Count of development error is always done to provide basic information
+					even if error buffer is not configured */
+	}
+	else
+	{
+		/* On Det is NOT fully initialized, Do nothing */
+		/* HINTS :  According to AR standard, no error shall be returned 
+					This is to avoid a kind of recursive call that would overflow stack */
+	}
+	
+#if (DET_FORWARD_TO_DLT == STD_ON)
+	Dlt_DetForwardErrorTrace(ModuleId, InstanceId, ApiId, ErrorId);/* REQ : SWS_Det_00034 */
+	/* HINTS :  According to AR standard, each call to Det_ReportError shall be forwarded to Dlt if configured
+				therefore, call to Dlt_DetForwardErrorTrace is done whatever initialisation status */
+#endif
+	
+	return E_OK;
+}
+
+
+/**
+ * \ingroup Det
+ * Get the failed status of a DemComponent
+ *
+ *
+ * \param	ModuleId		Identification of caller module
+ * \param	InstanceId	
+ * \param	ApiId		
+ * \param	ErrorId
+ * \return	Std_ReturnType
+ *				E_OK: 
+ * 
+ * \see	None
+ * \par Autosar standard
+ * SWS_Dem_01115, SWS_Dem_01131, SWS_Dem_01134, SRS_Diag_04142
+*/
+Std_ReturnType Det_ReportRuntimeError(uint16 ModuleId, uint8 InstanceId, uint8 ApiId, uint8 ErrorId)
+{
+	return Det_ReportError(ModuleId, InstanceId, ApiId, ErrorId);
+}
+
+
+/**
+ * \ingroup Det
+ * Get the failed status of a DemComponent
+ *
+ *
+ * \param	ModuleId		Identification of caller module
+ * \param	InstanceId	
+ * \param	ApiId		
+ * \param	FaultId
+ * \return	Std_ReturnType
+ *				E_OK: 
+ * 
+ * \see	None
+ * \par Autosar standard
+ * SWS_Dem_01115, SWS_Dem_01131, SWS_Dem_01134, SRS_Diag_04142
+*/
+Std_ReturnType Det_ReportTransientFault(uint16 ModuleId, uint8 InstanceId, uint8 ApiId, uint8 FaultId)
+{
+	return Det_ReportError(ModuleId, InstanceId, ApiId, FaultId);
+}
+
+
+/*
+ ***************************************************************************************************
+ * Processes
+ ***************************************************************************************************
+*/
+/**
+ * \ingroup Det
+ * \brief	Initialize the internal states necessary to process events re-ported by BSW-modules.
+ *
+ * commentaire supplementaire
+ * \return	void
+ * \remarks
+ * \see	None
+ * \par Autosar standard
+ * SWS_Det_00008, SWS_Det_00019, SWS_Det_00020
+*/
+void Det_Init()
+{
+	/* Declaration of local variables*/
+	uint32 idxCurrEntry;					/**/
+
+	/* Initialisation of local variables */
+	idxCurrEntry = 0;
+	
+#if (DET_ERROR_BUFFER_SIZE > 0)
+	for (idxCurrEntry = 0; idxCurrEntry < DET_ERROR_BUFFER_SIZE; idxCurrEntry ++)
+	{
+		/* Initialize current error entry with default values */
+		Det_xDevErrorBuffer_a[idxCurrEntry].moduleId = MAXUINT16;
+		Det_xDevErrorBuffer_a[idxCurrEntry].instanceId = MAXUINT8;
+		Det_xDevErrorBuffer_a[idxCurrEntry].apiId = MAXUINT8;
+		Det_xDevErrorBuffer_a[idxCurrEntry].errorId = MAXUINT8;
+	}
+	
+	/* Initialize index of next error entry */
+	Det_idxDevErrorEntry = 0;
+#endif
+
+	/* Initialize counte of error entries */
+	Det_ctDevError = 0;
+
+	Det_stInit = STD_INIT_STATE_INIT;
+}
+
+/**
+ * \ingroup Det
+ * \brief	Initialize the internal states necessary to process events re-ported by BSW-modules.
+ *
+ * commentaire supplementaire
+ * \return	void
+ * \remarks
+ * \see	None
+ * \par Autosar standard
+ * SWS_Det_00010, SWS_Det_00025
+*/
+void Det_Start()
+{
+
+}
+#endif /*DET_NXC*/
