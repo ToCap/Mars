@@ -1,0 +1,336 @@
+/*
+ ***************************************************************************************************
+ * MARS - the open source AR platform for Mindstorm https://github.com/ToCap/Mars
+ *
+ * Copyright (C) 2020  GC-MS Software (ThomTheCat)
+ *
+ * This source code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 as published by the
+ * Free Software Foundation; See <http://www.gnu.org/licenses/old-licenses/gpl-2.0.txt>.
+ *
+ *  Software distributed under the License is distributed on an "AS IS"
+ *  basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
+ *  License for the specific language governing rights and limitations
+ *  under the License.
+ ***************************************************************************************************
+*/
+
+#ifndef MFX_NXC
+#define MFX_NXC
+/**
+ * \defgroup Mfx
+*/
+
+
+
+/*
+ ***************************************************************************************************
+ * Includes
+ ***************************************************************************************************
+*/
+/* Includes of specific headers */
+#include "Mfx.h"						/**/
+
+
+/*
+ ***************************************************************************************************
+ * Services
+ ***************************************************************************************************
+*/
+
+/**
+ * \ingroup Mfx
+ * \brief	Returns the version information of this module
+ * \param[out] versioninfo Pointer to where to store the version information of this module
+ * \return	None
+ * \see	None
+ * \par Autosar standard
+ * SWS_Mfx_00215
+*/
+#if (MFX_VERSION_INFO_API == STD_ON)
+void Mfx_GetVersionInfo(P2VAR(Std_VersionInfoType) versioninfo)
+{
+	/* Copy module information */
+	versioninfo.vendorID = MFX_VENDOR_ID;
+	versioninfo.moduleID = MFX_MODULE_ID;
+	
+	/* Copy version information */
+	versioninfo.sw_major_version = MFX_SW_MAJOR_VERSION;
+	versioninfo.sw_minor_version = MFX_SW_MINOR_VERSION;
+	versioninfo.sw_patch_version = MFX_SW_PATCH_VERSION;
+}
+#endif
+
+
+
+/**
+ * \ingroup Mfx
+ * \brief	set the logical status of input data as '1' at the requested bit position
+ * \param	x_value	First argument
+ * \param	y_value	Second argument
+ * \return	None
+ * \see	None
+ * \par Autosar standard
+ * SWS_Mfx_00017, SWS_Mfx_00018, SWS_Mfx_00019, SWS_Mfx_00020
+*/
+uint32 Mfx_AbsDiff_u32u32_u32(uint32 x_value, uint32 y_value)
+{
+	/* Declaration of local variables */
+	sint32 tmp;
+	
+	tmp = (x_value - y_value);
+	
+	if (tmp < 0)
+	{
+		tmp = -tmp;
+	}
+	
+	return tmp;
+}
+
+
+/**
+ * \ingroup Mfx
+ * \brief	Make a division between the two arguments
+ * \param	x_value	First argument
+ * \param	y_value	Second argument
+ * \return	None
+ * \see	None
+ * \par Autosar standard
+ * SWS_Mfx_00025, SWS_Mfx_00026, SWS_Mfx_00027, SWS_Mfx_00028, SWS_Mfx_00030, SWS_Mfx_00031
+*/
+sint32 Mfx_Div_s32u32_s32(sint32 x_value, uint32 y_value)
+{
+	/* Declaration of local variables */
+	sint32 tmp;
+	
+	if (y_value != 0)
+	{
+		tmp = x_value / y_value;
+	}
+	else
+	{
+		if (x_value >= 0)
+		{
+			tmp = MAXSINT32;
+		}
+		else
+		{
+			tmp = MINSINT32;
+		}
+	}
+	
+	return tmp;
+}
+
+/**
+ * \ingroup Mfx
+ * \brief	Make a division between the two arguments
+ * \param	x_value	First argument
+ * \param	y_value	Second argument
+ * \return	None
+ * \see	None
+ * \par Autosar standard
+ * SWS_Mfx_00025, SWS_Mfx_00026, SWS_Mfx_00027, SWS_Mfx_00028, SWS_Mfx_00030, SWS_Mfx_00031
+*/
+uint8 Mfx_Div_u32u32_u8(uint32 x_value, uint32 y_value)
+{
+	/* Declaration of local variables */
+	uint8 tmp;
+	
+	if (y_value != 0)
+	{
+		tmp = x_value / y_value;
+	}
+	else
+	{
+		if (x_value >= 0)
+		{
+			tmp = MAXUINT8;
+		}
+		else
+		{
+			tmp = MINUINT8;
+		}
+	}
+	
+	return tmp;
+}
+
+/**
+ * \ingroup Mfx
+ * \brief	Make a division between the two arguments
+ * \param	x_value	First argument
+ * \param	y_value	Second argument
+ * \return	None
+ * \see	None
+ * \par Autosar standard
+ * SWS_Mfx_00025, SWS_Mfx_00026, SWS_Mfx_00027, SWS_Mfx_00028, SWS_Mfx_00030, SWS_Mfx_00031
+*/
+uint32 Mfx_Div_u32u32_u32(uint32 x_value, uint32 y_value)
+{
+	/* Declaration of local variables */
+	uint32 tmp;
+	
+	if (y_value != 0)
+	{
+		tmp = x_value / y_value;
+	}
+	else
+	{
+		if (x_value >= 0)
+		{
+			tmp = MAXUINT32;
+		}
+		else
+		{
+			tmp = MINUINT32;
+		}
+	}
+	
+	return tmp;
+}
+
+
+
+/**
+ * \ingroup Mfx
+ * \brief	Limits a value to a minimum and a maximum
+ * \param	Value	
+ * \param	Min		
+ * \param	Max		Upper limit
+ * \return	None
+ * \see	None
+ * \par Autosar standard
+ * SWS_Mfx_00073, SWS_Mfx_00074, SWS_Mfx_00075, SWS_Mfx_00076, SWS_Mfx_00077, SWS_Mfx_00079
+*/
+uint8 Mfx_Limit_u8(uint8 Value, uint8 Min, uint8 Max)
+{
+	/* Declaration of local variables */
+	uint8 tmp;
+	
+	if (Value <= Min)
+	{
+		tmp = Min;
+	}
+	else if (Value >= Max)
+	{
+		tmp = Max;
+	}
+	else
+	{
+		tmp = Value;
+	}
+	
+	return tmp;
+}
+
+
+/**
+ * \ingroup Mfx
+ * \brief	Return the minimum between two values
+ * \param	x_value	
+ * \param	y_value		
+ * \return	Result of the calculation
+ * \see	None
+ * \par Autosar standard
+ * SWS_Mfx_00090, SWS_Mfx_00091, SWS_Mfx_00092, SWS_Mfx_00096
+*/
+uint8 Mfx_Min_u8(uint8 x_value, uint8 y_value)
+{
+	return (x_value > y_value) ? x_value : y_value;
+}
+
+/**
+ * \ingroup Mfx
+ * \brief	Return the minimum between two values
+ * \param	x_value	
+ * \param	y_value		
+ * \return	Result of the calculation
+ * \see	None
+ * \par Autosar standard
+ * SWS_Mfx_00090, SWS_Mfx_00091, SWS_Mfx_00092, SWS_Mfx_00096
+*/
+uint16 Mfx_Min_u16(uint16 x_value, uint16 y_value)
+{
+	return (x_value > y_value) ? x_value : y_value;
+}
+
+/**
+ * \ingroup Mfx
+ * \brief	Return the minimum between two values
+ * \param	x_value	
+ * \param	y_value		
+ * \return	Result of the calculation
+ * \see	None
+ * \par Autosar standard
+ * SWS_Mfx_00090, SWS_Mfx_00091, SWS_Mfx_00092, SWS_Mfx_00096
+*/
+uint32 Mfx_Min_u32(uint32 x_value, uint32 y_value)
+{
+	return (x_value > y_value) ? x_value : y_value;
+}
+
+
+/**
+ * \ingroup Mfx
+ * \brief	Make an addition between the two arguments
+ * \param	x_value	First argument
+ * \param	y_value	Second argument
+ * \return	Result of the calculation
+ * \see	None
+ * \par Autosar standard
+ * SWS_Mfx_00002, SWS_Mfx_00006, SWS_Mfx_00007, SWS_Mfx_00008
+*/
+uint8 Mfx_Add_u8u8_u8(uint8 x_value, uint8 y_value)
+{	
+	return (Mfx_Min_u16((x_value + y_value), MAXUINT8) & 0xFF);
+	/* HINTS : Additionnal mask is used to force computation output to targetted type */
+}
+
+
+/**
+ * \ingroup Mfx
+ * \brief	Returns the remainder of the division x_value / y_value if y_value is not zero
+ * \param	x_value	First argument
+ * \param	y_value	Second argument
+ * \return	None
+ * \see	None
+ * \par Autosar standard
+ * SWS_Mfx_00065, SWS_Mfx_00066, SWS_Mfx_00068, SWS_Mfx_00069, SWS_Mfx_00070
+*/
+uint8 Mfx_Mod_u8(uint8 x_value, uint8 y_value)
+{
+	return (y_value != 0) ? (x_value % y_value) : 0;
+}
+
+
+/**
+ * \ingroup Mfx
+ * \brief	Make a subtraction between the two arguments
+ * \param	x_value	First argument
+ * \param	y_value	Second argument
+ * \return	None
+ * \see	None
+ * \par Autosar standard
+ * SWS_Mfx_00009, SWS_Mfx_00010, SWS_Mfx_00027, SWS_Mfx_00028, SWS_Mfx_00030, SWS_Mfx_00031
+*/
+uint8 Mfx_Sub_u8u8_u8(uint8 x_value, uint8 y_value)
+{
+	/* Declaration of local variables */
+	uint8 tmp;
+
+	if (x_value >= y_value)
+	{
+		tmp = x_value - y_value;
+	}
+	else
+	{
+		tmp = MINUINT8;
+	}
+	
+	return tmp;
+}
+
+
+#endif /*MFX_NXC*/
