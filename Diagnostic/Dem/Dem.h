@@ -159,7 +159,7 @@ void Dem_MainFunction(void);
 void Dem_Shutdown(void);
 
 boolean Dem_GetInitialisationStatus();
-Std_ReturnType Dem_DeclareEvent(string name, uint8 component, uint8 stDebAlgorithm)
+Std_ReturnType Dem_DeclareEvent(string name, uint8 component, uint8 stDebAlgorithm);
 
 void Dem_ReportErrorStatus(Dem_EventIdType EventId, Dem_EventStatusType EventStatus);
 Std_ReturnType Dem_SetEventStatus(Dem_EventIdType EventId, Dem_EventStatusType EventStatus);
