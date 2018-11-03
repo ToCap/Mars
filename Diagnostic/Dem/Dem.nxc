@@ -1,0 +1,1392 @@
+/*
+ ***************************************************************************************************
+ * MARS - the open source AR platform for Mindstorm https://github.com/ToCap/Mars
+ *
+ * Copyright (C) 2020  GC-MS Software (ThomTheCat)
+ *
+ * This source code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 as published by the
+ * Free Software Foundation; See <http://www.gnu.org/licenses/old-licenses/gpl-2.0.txt>.
+ *
+ *  Software distributed under the License is distributed on an "AS IS"
+ *  basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
+ *  License for the specific language governing rights and limitations
+ *  under the License.
+ ***************************************************************************************************
+*/
+
+#ifndef DEM_NXC
+#define DEM_NXC
+/**
+ * \defgroup Dem
+*/
+ 
+/*
+ ***************************************************************************************************
+ * Includes
+ ***************************************************************************************************
+*/
+
+
+#include "Sys.h"
+#include "Bfx.h"
+//#include "Dlt.h"
+#include "Det.h"						/**/
+//#include "FiM.h"
+#include "Dem.h"						/**/
+
+
+/*
+ ***************************************************************************************************
+ * Types
+ ***************************************************************************************************
+*/
+
+TYPEDEF struct Dem_EventParameterType
+{
+	string name;						//name of event as declared by owner
+	uint8 idxComponentRef;				//DemComponentClassRef 
+	uint8 stDebAlgorithm;				//DemDebounceAlgorithmClass
+	uint16 idxPrmSet;
+
+} ;
+
+/*!
+ * \ingroup Dem 
+ * \struct Dem_EventMemoryEntry
+ * \brief ???
+ *
+ * \par Autosar standard
+ * SWS_Dem_00011
+ */
+TYPEDEF struct Dem_EventMemoryEntry
+{
+	Dem_EventIdType				idxEvent;
+	uint8						ctOccurence;
+	
+} ;
+
+
+TYPEDEF struct Dem_FreezeFrame_t
+{
+	Dem_EventIdType         idxEvent;
+	uint16                  ctOccurrence;
+	uint16                  ctPayload;
+	uint8                   numRecord;
+	uint32                  tiStamp;
+	uint8                   data[DEM_MAX_NUMBER_SIGNAL_ENTRY_SNAPSHOT];
+
+} ;
+
+
+
+
+
+/*
+ ***************************************************************************************************
+ * Variables
+ ***************************************************************************************************
+*/
+
+uint8 ctDeclaredEvent;
+Dem_EventParameterType Dem_Prv_EventParameters[DEM_NUM_CFG_EVENT_MAX];
+
+
+
+/**
+ * \ingroup Dem 
+ * \var Dem_stInit
+ *  \brief ???
+ */
+uint8 Dem_stInit = STD_INIT_STATE_UNINIT;
+
+#if (DEM_BSW_ERROR_BUFFER_SIZE > 0)
+Dem_EventStatusType Dem_stBufEvent_a[DEM_BSW_ERROR_BUFFER_SIZE];
+#endif
+
+#if (DEM_BSW_ERROR_BUFFER_SIZE > 0)
+Dem_EventIdType	Dem_idxBufEvent_a[DEM_BSW_ERROR_BUFFER_SIZE];
+#endif
+
+#if (DEM_BSW_ERROR_BUFFER_SIZE > 0)
+uint16 Dem_idxBufEvent;
+#endif
+
+/**
+ * \ingroup Dem 
+ * \var Dem_ctBufEvent
+ *  \brief Counter of bufferized events during initialisation phase
+ */
+uint16 Dem_ctBufEvent;
+
+
+/** \var Dem_ctDebouncing_a
+ *  \brief ???
+ */
+sint16	Dem_ctDebouncing_a[DEM_NUM_EVENT_MAX];
+
+Dem_UdsStatusByteType Dem_stExtEvent_a[DEM_NUM_EVENT_MAX];
+
+Dem_EventStatusType Dem_stRawEvent_a[DEM_NUM_EVENT_MAX];
+
+Dem_EventStatusType Dem_stDebEvent_a[DEM_NUM_EVENT_MAX];
+
+uint8 Dem_idxEventMemory_a[DEM_NUM_EVENT_MAX];
+
+
+Dem_EventMemoryEntry Dem_xPrimaryMemory_a[DEM_MAX_NUMBER_EVENT_ENTRY_PRIMARY];
+
+uint8 Dem_idxPrimaryMemoryEntry;
+
+/** \var Dem_IntFaultHndlMutex
+ *  \brief ???
+ *  \remark
+ */
+Sys_MutexType Dem_IntFaultHndlMutex;
+
+Sys_MutexType Dem_stEventBufferMutex;
+
+/** \var Dem_stComponentFaild_a
+ * \brief ???
+ * \par Autosar standard
+ * SWS_Dem_01119
+ */
+uint8 Dem_stComponentFaild_a[(DEM_NUM_CFG_COMPONENT_MAX / 8) + 1];
+
+
+Dem_FreezeFrame_t	Dem_xFFBuffer[DEM_NUM_FF_MAX];
+
+Dem_IndicatorStatusType Dem_stIndicator[DEM_NUM_CFG_INDICATOR_MAX];
+
+
+
+/*
+ ***************************************************************************************************
+ * Functions
+ ***************************************************************************************************
+*/
+
+
+LOCAL_INLINE void Dem_Prv_RecordEvent(Dem_EventIdType EventId)
+{
+	if (Dem_idxEventMemory_a[EventId] == MAXUINT8)
+	{
+		/* On current event is not logged into event memory, Check memory overflow */
+		if (Dem_idxPrimaryMemoryEntry < DEM_MAX_NUMBER_EVENT_ENTRY_PRIMARY)
+		{
+			/* On event memory is NOT overflow, Log event */
+			Dem_xPrimaryMemory_a[Dem_idxPrimaryMemoryEntry].idxEvent = EventId;
+			Dem_xPrimaryMemory_a[Dem_idxPrimaryMemoryEntry].ctOccurence = 1;	
+			Dem_idxPrimaryMemoryEntry ++;/* increment index of next entry */
+		}
+		else
+		{
+			/* On event memory is overflow, Check displacement strategy */
+			//TODO : To be done
+		}
+	}
+	else
+	{
+		/* On current event is already logged into event memory, Update existing entry */
+		Dem_xPrimaryMemory_a[Dem_idxEventMemory_a[EventId]].ctOccurence ++;
+	}
+}
+
+
+
+/*
+ ***************************************************************************************************
+ * Services
+ ***************************************************************************************************
+*/
+
+boolean Dem_GetInitialisationStatus()
+{
+	return (Dem_stInit == STD_INIT_STATE_INIT);
+}
+
+
+/**
+ * \ingroup Dem
+ * Get the failed status of a DemComponent
+ *
+ *
+ * \param	ComponentId		Identification of a DemComponent
+ * \param	ComponentFailed : 
+ * \return	Std_ReturnType
+ *				E_OK: getting "ComponentFailed" was successful
+ *				E_NOT_OK: getting "ComponentFailed" was not successful
+ * 
+ * \see	None
+ * \ingroup Dem
+ * \par Autosar standard
+ * SWS_Dem_01115, SWS_Dem_01131, SWS_Dem_01134, SWS_Dem_01112, SWS_Dem_00368
+ * SWS_Dem_00370
+*/
+Std_ReturnType Dem_GetComponentFailed(Dem_ComponentIdType ComponentId, P2VAR(boolean) ComponentFailed)
+{
+	/* Declaration of local variables */
+	Std_ReturnType stRetVal;
+	
+	/* Initialize variables with default value */
+	stRetVal = E_OK;					/*operation successful*/
+	
+	/* Check Dem initialisation status */
+	if (Dem_stInit == STD_INIT_STATE_INIT)
+	{	
+		/* On Dem is fully initialized, Check if component index is valid */
+		if (ComponentId < DEM_NUM_CFG_COMPONENT_MAX)
+		{
+			/* On component is valid, Update output parameter for 'ComponentFailed' status */
+			ComponentFailed = Bfx_GetBit_u8u8(Dem_stComponentFaild_a[ComponentId / 8], (ComponentId % 8));
+		}
+		else
+		{
+			/* On component index is NOT valid, Return error */
+			stRetVal = E_NOT_OK;
+			
+			/* Trace error in Det if required */
+			#if (DEM_DEV_ERROR_DETECT == STD_ON)
+			Det_ReportError(DEM_MODULE_ID, 0, DEM_GETCOMPONENTFAILED_ID, DEM_E_PARAM_DATA);
+			#endif		
+		}
+	}
+	else
+	{
+		/* On Dem initialisation is still on-going, Return error */
+		stRetVal = E_NOT_OK;
+		
+		/* Trace error in Det if required */
+		#if (DEM_DEV_ERROR_DETECT == STD_ON)
+		Det_ReportError(DEM_MODULE_ID, 0, DEM_GETCOMPONENTFAILED_ID, DEM_E_UNINIT);
+		#endif		
+	}
+	
+	return stRetVal;
+}
+
+
+/**
+ * \brief	Get the debouncing status of an event
+ * \param	EventId : Identification of an event by assigned EventId
+ * \param	DebouncingState : 
+ * \return	Std_ReturnType
+ *				E_OK: get of debouncing status per event state successful
+ *				E_NOT_OK: get of debouncing per event state failed
+ * 
+ * \see	None
+ * \ingroup Dem
+ * \par Autosar standard
+ * SWS_Dem_00730, SRS_Diag_04126, SWS_Dem_01112, SWS_Dem_00368, SWS_Dem_00370
+ * SWS_Dem_00844, SWS_Dem_01108
+*/
+Std_ReturnType Dem_GetDebouncingOfEvent(Dem_EventIdType EventId, P2VAR(Dem_DebouncingStateType) DebouncingState)
+{
+	/* Declaration of local variables */
+	Std_ReturnType stRetVal;
+	Dem_DebouncingStateType stDebInt;
+	sint8 ctFlrDet;
+	
+	/* Initialize variables with default value */
+	stRetVal = E_OK;					/*operation successful*/
+	stDebInt = 0;						/*default value*/
+	
+	/* Check Dem initialisation status */
+	if (Dem_stInit == STD_INIT_STATE_INIT)
+	{	
+		/* On Dem is fully initialized, Check if specified event is valid */
+		if (EventId < ctDeclaredEvent)
+		{
+			/* On specified event is valid, Get fault detection counter */
+			ctFlrDet = 0;//TODO : A coder
+			
+			/* Builds debouncing status */
+			if (ctFlrDet > 0 && ctFlrDet < 127)
+			{
+				stDebInt &= DEM_TEMPORARILY_DEFECTIVE;
+			}
+			else if (ctFlrDet == 127)
+			{
+				stDebInt &= DEM_FINALLY_DEFECTIVE;
+			}
+			else if (ctFlrDet > -128 && ctFlrDet < 0)
+			{
+				stDebInt &= DEM_TEMPORARILY_HEALED;
+			}
+			else
+			{
+				/* On*/
+			}
+			
+			if (ctFlrDet == -128 || ctFlrDet == 127)
+			{
+				stDebInt &= DEM_TEST_COMPLETE;
+			}
+			else
+			{
+			}
+			
+			DebouncingState = stDebInt;
+		}
+		else
+		{
+			/* On specified event is NOT valid, Return error */
+			stRetVal = E_NOT_OK;
+			
+			/* Trace error in Det if required */
+			#if (DEM_DEV_ERROR_DETECT == STD_ON)
+			Det_ReportError(DEM_MODULE_ID, 0, DEM_GETDEBOUNCINGOFEVENT_ID, DEM_E_PARAM_DATA);
+			#endif	
+		}
+	}
+	else
+	{
+		/* On Dem initialisation is still on-going, Return error */
+		stRetVal = E_NOT_OK;
+		
+		/* Trace error in Det if required */
+		#if (DEM_DEV_ERROR_DETECT == STD_ON)
+		Det_ReportError(DEM_MODULE_ID, 0, DEM_GETDEBOUNCINGOFEVENT_ID, DEM_E_UNINIT);
+		#endif		
+	}
+
+	return (stRetVal);
+}
+
+
+/**
+ * \brief	Get the event memory overflow indication status
+ * \param	DTCOrigin : Identification of a source memory
+ * \param	OverflowIndication : 
+ * \return	Std_ReturnType
+ *				E_OK: Operation was successful
+ *				E_NOT_OK: Operation failed or is not supported
+ * \see	None
+ * \ingroup Dem
+ * \par Autosar standard
+ * Common : SWS_Dem_00559, SWS_Dem_01112, SWS_Dem_00368, SWS_Dem_00370,
+ * SWS_Dem_00398
+ * Limitations : Dem implementation does not support more than one event memory 
+ * therefore DTCOrigin parameter is useless and service would always check overflow of Primary Memory
+*/
+Std_ReturnType Dem_GetEventMemoryOverflow(Dem_DTCOriginType DTCOrigin, P2VAR(boolean) OverflowIndication)
+{
+	/* Declaration of local variables */
+	Std_ReturnType stRetVal;
+	
+	/* Initialize variables with default value */
+	stRetVal = E_OK;				/*operation successfull*/
+	
+	/* Check Dem initialisation status */
+	if (Dem_stInit == STD_INIT_STATE_INIT)
+	{		
+		/* On Dem is fully initialized, Check overflow of Primary memory */
+		if (Dem_idxPrimaryMemoryEntry < DEM_MAX_NUMBER_EVENT_ENTRY_PRIMARY)
+		{
+			OverflowIndication = FALSE;
+		}
+		else
+		{
+			OverflowIndication = TRUE;
+		}
+	}
+	else
+	{
+		/* On Dem initialisation is still on-going, Return error */
+		stRetVal = E_NOT_OK;
+		
+		/* Trace error in Det if required */
+		#if (DEM_DEV_ERROR_DETECT == STD_ON)
+		Det_ReportError(DEM_MODULE_ID, 0, DEM_GETEVENTMEMORYOVERFLOW_ID, DEM_E_UNINIT);
+		#endif		
+	}	
+	
+	return (stRetVal);
+}
+
+
+/**
+ * \brief	Get the event tested status of an event
+ * \param	EventId : Identification of an event by assigned EventId
+ * \param	EventFailed : 
+ * \return	Std_ReturnType
+ *				E_OK: get of debouncing status per event state successful
+ *				E_NOT_OK: get of debouncing per event state failed
+ * \see	None
+ * \ingroup Dem
+ * \par Autosar standard
+ * SWS_Dem_00195, SWS_Dem_01108, SWS_Dem_00051, SWS_Dem_01112, SWS_Dem_00368
+ * SWS_Dem_00370,
+*/
+Std_ReturnType Dem_GetEventStatus(Dem_EventIdType EventId, P2VAR(Dem_UdsStatusByteType) EventStatusByte)
+{
+	/* Declaration of local variables */
+	Std_ReturnType stRetVal;
+	
+	/* Initialize variables with default value */
+	stRetVal = E_OK;					/*operation sucessful*/
+	
+	/* Check Dem initialisation status */
+	if (Dem_stInit == STD_INIT_STATE_INIT)
+	{		
+		/* On Dem is fully initialized,  Check if specified event is valid */
+		if (EventId < ctDeclaredEvent)
+		{
+			/* On specified event is valid, */
+			Sys_AcquireLock(Dem_IntFaultHndlMutex);
+			EventStatusByte = Dem_stExtEvent_a[EventId];
+			Sys_ReleaseLock(Dem_IntFaultHndlMutex);
+		}
+		else
+		{
+			/* On specified event is NOT valid, Return error  */
+			stRetVal = E_NOT_OK;
+			
+			/* Trace error in Det if required */
+			#if (DEM_DEV_ERROR_DETECT == STD_ON)
+			Det_ReportError(DEM_MODULE_ID, 0, DEM_GETEVENTSTATUS_ID, DEM_E_PARAM_DATA);
+			#endif	
+		}
+	}
+	else
+	{
+		/* On Dem initialisation is still on-going, Return error */
+		stRetVal = E_NOT_OK;
+		
+		/* Trace error in Det if required */
+		#if (DEM_DEV_ERROR_DETECT == STD_ON)
+		Det_ReportError(DEM_MODULE_ID, 0, DEM_GETEVENTSTATUS_ID, DEM_E_UNINIT);
+		#endif		
+	}
+	return (stRetVal);
+}
+
+
+/**
+ * \brief	Get the event failed status of an event
+ * \param	EventId : Identification of an event by assigned EventId
+ * \param	EventFailed : 
+ * \return	Std_ReturnType
+ *				E_OK: get of debouncing status per event state successful
+ *				E_NOT_OK: get of debouncing per event state failed
+ * \see	None
+ * \ingroup Dem
+ * \par Autosar standard
+ * SWS_Dem_00196, SWS_Dem_00333, SWS_Dem_00052, SWS_Dem_01112, SWS_Dem_00368
+ * SWS_Dem_00370
+*/
+Std_ReturnType Dem_GetEventFailed(Dem_EventIdType EventId, P2VAR(boolean) EventFailed)
+{
+	/* Declaration of local variables */
+	Std_ReturnType 			stRetVal;
+	Dem_UdsStatusByteType	stUDSEvent;
+
+	/* Initialize variables with default value */
+	stRetVal = E_OK;					/*operation sucessful*/
+	
+	/* Check Dem initialisation status */
+	if (Dem_stInit == STD_INIT_STATE_INIT)
+	{		
+		/* On Dem is fully initialized, Get UDS status of specified event */
+		stRetVal = Dem_GetEventStatus(EventId, stUDSEvent);
+		if (stRetVal == E_OK)
+		{
+			/* Read the UDS status bit #0 (TestFailed) */
+			EventFailed = (stUDSEvent & DEM_UDS_STATUS_TF);
+		}
+		else
+		{
+			/* Do nothing */
+		}
+	}
+	else
+	{
+		/* On Dem initialisation is still on-going, Return error */
+		stRetVal = E_NOT_OK;
+		
+		/* Trace error in Det if required */
+		#if (DEM_DEV_ERROR_DETECT == STD_ON)
+		Det_ReportError(DEM_MODULE_ID, 0, DEM_GETEVENTFAILED_ID, DEM_E_UNINIT);
+		#endif		
+	}
+	
+	return stRetVal;
+}
+
+
+/**
+ * \brief	Get the event tested status of an event
+ * \param	EventId : Identification of an event by assigned EventId
+ * \param	EventTested : 
+ * \return	Std_ReturnType
+ *				E_OK: get of debouncing status per event state successful
+ *				E_NOT_OK: get of debouncing per event state failed
+ * \see	None
+ * \ingroup Dem
+ * \par Autosar standard
+ * SWS_Dem_00197, SWS_Dem_00333, 
+ * SWS_Dem_00370, SWS_Dem_00053, SWS_Dem_01112, SWS_Dem_00368
+*/
+Std_ReturnType Dem_GetEventTested(Dem_EventIdType EventId, P2VAR(boolean) EventTested)
+{
+	/* Declaration of local variables */
+	Std_ReturnType 			stRetVal;
+	Dem_UdsStatusByteType	stUDSEvent;
+
+	/* Initialize variables with default value */
+	stRetVal = E_OK;					/*operation sucessful*/
+	
+	/* Check Dem initialisation status */
+	if (Dem_stInit == STD_INIT_STATE_INIT)
+	{		
+		/* On Dem is fully initialized, Get UDS status of specified event */
+		stRetVal = Dem_GetEventStatus(EventId, stUDSEvent);
+		if (stRetVal == E_OK)
+		{
+			/* Read the negated UDS status bit #6 (TestNotCompletedThisOperationCycle) */
+			EventTested = !(stUDSEvent & DEM_UDS_STATUS_TNCTOC);
+		}
+		else
+		{
+			/* Do nothing */
+		}
+	}
+	else
+	{
+		/* On Dem initialisation is still on-going, Return error */
+		stRetVal = E_NOT_OK;
+		
+		/* Trace error in Det if required */
+		#if (DEM_DEV_ERROR_DETECT == STD_ON)
+		Det_ReportError(DEM_MODULE_ID, 0, DEM_GETEVENTTESTED_ID, DEM_E_UNINIT);
+		#endif		
+	}
+	
+	return stRetVal;
+}
+
+
+/**
+ * \brief	Get the event memory overflow indication status
+ * \param	DTCOrigin : Identification of a source memory
+ * \param	NumberOfEventMemoryEntries : 
+ * \return	Std_ReturnType
+ *				E_OK: Operation was successful
+ *				E_NOT_OK: Operation failed or is not supported
+ * \see	None
+ * \ingroup Dem
+ * \par Autosar standard
+ * Common : SWS_Dem_00559, SWS_Dem_01112, SWS_Dem_00368, SWS_Dem_00370,
+ * SWS_Dem_00651, SWS_Dem_00652
+ * Limitations : Dem implementation does not support more than one event memory 
+ * therefore DTCOrigin parameter is useless and service would always return number of entries in Primary Memory
+*/
+Std_ReturnType Dem_GetNumberOfEventMemoryEntries(Dem_DTCOriginType DTCOrigin, P2VAR(uint8) NumberOfEventMemoryEntries)
+{
+	/* Declaration of local variables */
+	Std_ReturnType stRetVal;
+	
+	/* Initialize variables with default value */
+	stRetVal = E_NOT_OK;				/*not yet implemented*/
+	
+	/* Check Dem initialisation status */
+	if (Dem_stInit == STD_INIT_STATE_INIT)
+	{		
+		/* On Dem is fully initialized, Read out number of entries in Primary memory */
+		NumberOfEventMemoryEntries = (Dem_idxPrimaryMemoryEntry + 1);
+		/* HINTS :  Unsafe read back is intentionally implemented to spare CPU runtime */
+	}
+	else
+	{
+		/* On Dem initialisation is still on-going, Return error */
+		stRetVal = E_NOT_OK;
+		
+		/* Trace error in Det if required */
+		#if (DEM_DEV_ERROR_DETECT == STD_ON)
+		Det_ReportError(DEM_MODULE_ID, 0, DEM_GETNUMBEROFEVENTMEMORYENTRIES_ID, DEM_E_UNINIT);
+		#endif		
+	}	
+	
+	return (stRetVal);
+}
+
+
+
+/**
+ * \ingroup Dem
+ * \brief	Return the version information of this module
+ * \param[out] versioninfo Pointer to where to store the version information of this module
+ * \return	None
+ * \see	None
+ * \par Autosar standard
+ * SWS_Dem_01080, SRS_Diag_04126
+*/
+#if (DEM_VERSION_INFO_API == STD_ON)
+void Dem_GetVersionInfo(P2VAR(Std_VersionInfoType) versioninfo)
+{
+	/* Copy module information */
+	versioninfo.vendorID = DEM_VENDOR_ID;
+	versioninfo.moduleID = DEM_MODULE_ID;
+	
+	/* Copy version information */
+	versioninfo.sw_major_version = DEM_SW_MAJOR_VERSION;
+	versioninfo.sw_minor_version = DEM_SW_MINOR_VERSION;
+	versioninfo.sw_patch_version = DEM_SW_PATCH_VERSION;
+}
+#endif
+
+
+/**
+ * \ingroup Dem
+ * \brief	Queues the reported event
+ *
+ * xxxx
+ * \param	EventId : Identification of an event by assigned Event ID
+ * \param	EventStatus : Monitor test result
+ * \return	void
+ * 
+ * \par Autosar standard
+ * SWS_Dem_01108, SWS_Dem_00206, SWS_Dem_00364
+*/
+void Dem_ReportErrorStatus(Dem_EventIdType EventId, Dem_EventStatusType EventStatus)
+{
+	/* Declaration of local variables */
+	uint8 stInit;			/*  */
+	
+	/* Initialize variables with default value */
+	stInit = Dem_stInit;/*for quicker access */
+	
+	/* Check Dem initialisation status */
+	if (stInit != STD_INIT_STATE_UNINIT)
+	{
+		/* On Dem is initialized, Check if specified event is valid */
+		if (EventId < ctDeclaredEvent)
+		{	
+			/* On Dem initialisation is on-going, Check if buffer is full */
+#if (DEM_BSW_ERROR_BUFFER_SIZE > 0)
+			Sys_AcquireLock(Dem_stEventBufferMutex);//TODO : Utiliser la fct ds Cpuh
+			if (Dem_idxBufEvent < DEM_BSW_ERROR_BUFFER_SIZE)
+			{
+				/* On buffer is NOT already full, Enqueue reported event */
+				
+				Dem_idxBufEvent_a[Dem_idxBufEvent] = EventId;
+				Dem_stBufEvent_a[Dem_idxBufEvent] = EventStatus;
+				Dem_idxBufEvent ++;/*jump to next free slot for next event queuing*/
+			}
+			else
+			{
+				/* On buffer is already full, Do nothing */
+			}
+			Sys_ReleaseLock(Dem_stEventBufferMutex);//TODO : Utiliser la fct ds Cpuh
+#endif
+			/* Increment counter of bufferized events */
+			Dem_ctBufEvent ++;
+			/* HINTS : Counter is intended to give a basic overview of queue occupancy or the required queue size
+			therefore a mechanism to ensure data consistency is not mandatory */
+		}
+		else
+		{
+			/* On specified event is NOT valid, Do nothing */
+
+			
+			/* Trace error in Det if required */
+			#if (DEM_DEV_ERROR_DETECT == STD_ON)
+			Det_ReportError(DEM_MODULE_ID, 0, DEM_REPORTERRORSTATUS_ID, DEM_E_PARAM_DATA);
+			#endif			
+		}	
+		
+	}
+	else
+	{
+		/* On Dem initialisation is not yet started, Do nothing */
+		#if (DEM_DEV_ERROR_DETECT == STD_ON)
+		Det_ReportError(DEM_MODULE_ID, 0, DEM_REPORTERRORSTATUS_ID, DEM_E_UNINIT);
+		#endif	
+	}
+}
+
+/**
+ * \ingroup Dem
+ * \brief	Control the internal debounce counter/timer
+ *
+ * The event qualification will not be affected by these debounce state changes. This API is available for
+ * BSW modules as soon as Dem_PreInit has been completed.
+ * \param	EventId		Identification of an event by assigned EventId
+ * \param	DebounceResetStatus : Freeze or reset the internal debounce counter/timer of the specified event
+ * \return	Std_ReturnType
+ *				E_OK: get of debouncing status per event state successful
+ *				E_NOT_OK: get of debouncing per event state failed
+ * \remarks
+ * \see	None
+ * \par Autosar standard
+ * SWS_Dem_00683, SWS_Dem_00684, SWS_Dem_00364, SWS_Dem_00370, SWS_Dem_00684, SWS_Dem_01108
+*/
+Std_ReturnType Dem_DeclareEvent(string name, uint8 component, uint8 stDebAlgorithm)
+{
+	/* Declaration of local variables */
+	Std_ReturnType stRetVal;
+	uint8 numEvent;
+	
+	/* Initialize variables with default value */
+	stRetVal = E_OK;/*operation sucessful*/
+	
+	if (ctDeclaredEvent < DEM_NUM_CFG_EVENT_MAX)
+	{
+		numEvent = ctDeclaredEvent;
+		ctDeclaredEvent ++;
+		
+		/**/
+		Dem_Prv_EventParameters[numEvent].name = name;
+		Dem_Prv_EventParameters[numEvent].idxComponentRef = component;
+		Dem_Prv_EventParameters[numEvent].stDebAlgorithm = stDebAlgorithm;
+	}
+	else
+	{
+		stRetVal = E_NOT_OK;
+	}
+	
+	return stRetVal;
+}
+
+/**
+ * \ingroup Dem
+ * \brief	Control the internal debounce counter/timer
+ *
+ * The event qualification will not be affected by these debounce state changes. This API is available for
+ * BSW modules as soon as Dem_PreInit has been completed.
+ * \param	EventId		Identification of an event by assigned EventId
+ * \param	DebounceResetStatus : Freeze or reset the internal debounce counter/timer of the specified event
+ * \return	Std_ReturnType
+ *				E_OK: get of debouncing status per event state successful
+ *				E_NOT_OK: get of debouncing per event state failed
+ * \remarks
+ * \see	None
+ * \par Autosar standard
+ * SWS_Dem_00683, SWS_Dem_00684, SWS_Dem_00364, SWS_Dem_00370, SWS_Dem_00684, SWS_Dem_01108
+*/
+Std_ReturnType Dem_ResetEventDebounceStatus(Dem_EventIdType EventId, Dem_DebounceResetStatusType DebounceResetStatus)
+{
+	/* Declaration of local variables */
+	Std_ReturnType stRetVal;
+	
+	/* Initialize variables with default value */
+	stRetVal = E_OK;/*operation sucessful*/
+	
+	/* Check Dem initialisation status */
+	if (Dem_stInit != STD_INIT_STATE_UNINIT)
+	{		
+		/* On Dem is initialisation is on-going, Check if specified event is valid */
+		if (EventId < ctDeclaredEvent)
+		{
+			/* On specified event is valid, Switch on configured debounce algorithm */
+			switch (Dem_Prv_EventParameters[EventId].stDebAlgorithm)
+			{
+#if (DEM_DEBOUNCE_COUNTER_BASED_SUPPORT == STD_ON)
+				/* On counter based debounce algorithm, */
+				case DEM_DEBOUNCE_ALGORITHM_COUNTER:
+				{
+					switch (DebounceResetStatus)
+					{
+						/* On debounce shall be reset, Re-initilizes debounce counter to init value */
+						case DEM_DEBOUNCE_STATUS_RESET:
+						{
+							Sys_AcquireLock(Dem_IntFaultHndlMutex);
+							Dem_ctDebouncing_a[EventId] = 0;
+							Sys_ReleaseLock(Dem_IntFaultHndlMutex);
+						}
+						break;
+						
+						/* On unknown or not relevant action, Return error */
+						case DEM_DEBOUNCE_STATUS_FREEZE:
+						default:
+						{
+							stRetVal = E_NOT_OK;
+
+							/* Trace error in Det if required */
+							#if (DEM_DEV_ERROR_DETECT == STD_ON)
+							Det_ReportError(DEM_MODULE_ID, 0, DEM_RESETEVENTDEBOUNCESTATUS_ID, DEM_E_PARAM_DATA);
+							#endif	
+						}
+						break;
+						
+						/* HINTS : The "switch case" implementation is used intentionnaly 
+									to ease enhancement if additionnal debounce algoritm should be added */
+					}
+				}
+				break;
+#endif
+			
+#if (DEM_DEBOUNCE_TIME_BASED_SUPPORT == STD_ON)
+				/* On timed based debounce algorithm, */
+				case DEM_DEBOUNCE_ALGORITHM_TIME:
+				{
+					/* On debounce algorithm class is time based, Return error */
+					stRetVal = E_NOT_OK;/*not implemented*/
+				}
+				break;
+#endif
+
+				/* On native debounce algorithm, Do nothing */
+				case DEM_DEBOUNCE_ALGORITHM_NATIVE:
+				{
+					/* HINTS : Debouncing is handled by SW-C instead of Dem-internally 
+							therefore a call to this API has no effect InitMonitorForEvent  */
+				}
+				break;
+				
+				/* On unknown debounce algorithm, Return error */
+				default:
+				{
+					stRetVal = E_NOT_OK;
+					
+					/* Trace error in Det if required */
+					#if (DEM_DEV_ERROR_DETECT == STD_ON)
+					Det_ReportError(DEM_MODULE_ID, 0, DEM_RESETEVENTDEBOUNCESTATUS_ID, DEM_E_PARAM_DATA);
+					#endif		
+				}
+				break;
+				
+				/* HINTS : The "switch case" implementation is used intentionnaly 
+							to ease enhancement if additionnal debounce algoritm should be added */
+			}
+		}
+		else
+		{
+			/* On specified event is NOT valid, Return error  */
+			stRetVal = E_NOT_OK;
+			
+			/* Trace error in Det if required */
+			#if (DEM_DEV_ERROR_DETECT == STD_ON)
+			Det_ReportError(DEM_MODULE_ID, 0, DEM_RESETEVENTDEBOUNCESTATUS_ID, DEM_E_PARAM_DATA);
+			#endif					
+		}
+	}
+	else
+	{
+		/* On Dem initialisation is not yet started, Return error */
+		stRetVal = E_NOT_OK;
+		
+		/* Trace error in Det if required */
+		#if (DEM_DEV_ERROR_DETECT == STD_ON)
+		Det_ReportError(DEM_MODULE_ID, 0, DEM_RESETEVENTDEBOUNCESTATUS_ID, DEM_E_UNINIT);
+		#endif		
+	}
+	return stRetVal;	
+}
+
+
+/**
+ * \ingroup Dem
+ * \brief	Reset the event failed status
+ *
+ * xxxx
+ * \param	EventId		Identification of an event by assigned EventId
+ * \return	Std_ReturnType
+ *				E_OK: reset of event status was successful
+ *				E_NOT_OK: reset  of  event  status  failed  or  is  not  al-
+lowed, because the event is already tested in this operation cycle
+ * \remarks
+ * \see	None
+ * \par Autosar standard
+ * SWS_Dem_01108, SWS_Dem_01112, SWS_Dem_00368, SWS_Dem_00331 (SRS_Diag_04030), SWS_Dem_00187, SWS_Dem_00638, SWS_Dem_01108, SWS_Dem_01112, SWS_Dem_00368
+*/
+Std_ReturnType Dem_ResetEventStatus(Dem_EventIdType EventId)
+{
+	/* Declaration of local variables */
+	Std_ReturnType stRetVal;
+	Dem_UdsStatusByteType stEvent;
+
+	/* Initialize variables with default value */
+	stRetVal = E_OK;/*no error by default*/
+	
+	/* Check if specified event is valid */
+	if (EventId < ctDeclaredEvent)
+	{
+		/* On specified event is valid, Check if event was already tested this operation cycle */
+		if (Dem_stExtEvent_a[EventId] & DEM_UDS_STATUS_TNCTOC)
+		{
+			/* On event is not yet tested this operation cycle, Reset debouncing */
+			Sys_AcquireLock(Dem_IntFaultHndlMutex);
+			stEvent = Dem_stExtEvent_a[EventId];
+			Bfx_ClrBit_u8u8(stEvent, DEM_UDS_STATUS_TF);/*clears the UDS DTC status bit 0 (TestFailed)*/
+      Dem_stExtEvent_a[EventId] = stEvent;
+
+      Dem_ctDebouncing_a[EventId] = 0;/*reset the Dem-internal debounce algorithm to initial value*/
+			Sys_ReleaseLock(Dem_IntFaultHndlMutex);
+		}
+		else
+		{
+			/* On event was already tested this operation cycle, Do nothing */
+			stRetVal = E_NOT_OK;
+		}
+	}
+	else
+	{
+		/* On event identifier is NOT valid, Return error */
+		stRetVal = E_NOT_OK;
+	}
+	
+	return stRetVal;
+}
+
+
+/**
+ * \ingroup Dem
+ \brief	Initialize the internal states necessary to process events re-ported by BSW-modules.
+ *
+ * commentaire supplémentaire
+ \param	EventId		Identification of an event by assigned EventId
+ * \param	EventStatus	Monitor test result
+ * \return	void
+ * \remarks
+ * \see	None
+ * \par Autosar standard
+ * SWS_Dem_01108, SWS_Dem_01112, SWS_Dem_00368, SWS_Dem_00386, SWS_Dem_00389, SWS_Dem_00390
+ * SWS_Dem_00415, SWS_Dem_00418, SWS_Dem_00419, SWS_Dem_00420, SWS_Dem_00421, SWS_Dem_00423, SWS_Dem_00424
+ * SWS_Dem_00437, SWS_Dem_00370, SWS_Dem_00036
+ * Deviations : DemEventFailureCycleCounterThreshold is considered as always equal to 1 
+ *	therefore UDS DTC status bit 2 (PendingDTC) and 3 (ConfirmedDTC) are raised together
+*/
+Std_ReturnType Dem_SetEventStatus(Dem_EventIdType EventId, Dem_EventStatusType EventStatus)
+{
+	/* Declaration of local variables */
+	sint16 ctCurrDeb;
+	uint16 idxPrmSet;					/*index of parameter set  for debounce associated to specified event id*/
+	sint16 valDecrementStepSize;		/**/
+	sint16 valIncrementStepSize;
+	sint16 valPassedThreshold;			/*value of the internal debounce counter which indicates the passed status*/
+	sint16 valFailedThreshold;
+	sint16 ctDebIni;
+	Std_ReturnType stRetVal;
+	uint8 stDebAlgorithm;
+	Dem_EventStatusType	stPrevDebEvent;		/*previous event status after debounce processing*/
+	Dem_EventStatusType	stCurrDebEvent;		/*current event status after debounce processing*/
+	Dem_EventStatusType stPrevRawEvent;		/*previous raw event status*/	
+	Dem_EventStatusType	stCurrRawEvent;		/*current raw event status*/
+	uint8 stCurrExtEvent;						/*local copy of UDS DTC status*/
+	uint8 stPrevExtEvent;
+	uint8 stEventStatusChanged;				/*status of event statusn changed after debouncing*/					
+	
+	/* Initialize variables with default value */
+	stRetVal = E_OK;					/*operation successful*/
+	stCurrDebEvent = 0;					/*current event debounced status*/
+	stCurrRawEvent = EventStatus;		/*current event raw status*/
+	stEventStatusChanged = FALSE;
+
+	/* Check Dem initialisation status */
+	if (Dem_stInit == STD_INIT_STATE_INIT)
+	{
+		/* On Dem is fully initialized, Check if specified event is valid */
+		if (EventId < ctDeclaredEvent)
+		{
+			/* On specified event is valid, Enter critical section */
+			Sys_AcquireLock(Dem_IntFaultHndlMutex);
+			
+			/* Get current contex */
+			ctCurrDeb = Dem_ctDebouncing_a[EventId];
+			stCurrExtEvent = Dem_stExtEvent_a[EventId];
+			stPrevRawEvent = Dem_stRawEvent_a[EventId];
+			stPrevDebEvent = Dem_stDebEvent_a[EventId];
+			
+			/* Switch on configured debounce algorithm */
+			stDebAlgorithm = Dem_Prv_EventParameters[EventId].stDebAlgorithm;
+			switch (stDebAlgorithm)
+			{
+#if (DEM_DEBOUNCE_COUNTER_BASED_SUPPORT == STD_ON)
+				/* On debounce algorithm class is counter based, Calls dedicated handler */
+				case DEM_DEBOUNCE_ALGORITHM_COUNTER:
+				{
+					/* Get index of parameter set for quicker access */
+					idxPrmSet = Dem_Prv_EventParameters[EventId].idxPrmSet;
+					
+					/* Switch on reported event status */
+					switch (EventStatus)
+					{
+						/* */
+						case DEM_EVENT_STATUS_PREPASSED:
+						{
+						
+							/* Get configuration params for quicker access */
+							valDecrementStepSize = Dem_DebounceCounterBasedClass[idxPrmSet].valDecrementStepSize;
+							valPassedThreshold = Dem_DebounceCounterBasedClass[idxPrmSet].valPassedThreshold;
+							
+							/* Check if debounce is on-going */
+							if (ctCurrDeb > valPassedThreshold)
+							{			
+								/* Check if jump-down behavior is configured */
+								if (Dem_DebounceCounterBasedClass[idxPrmSet].stJumpDown)
+								{
+									/* On jump-down behavior is configured, Check if conditions are fullfilled */
+									ctDebIni = Dem_DebounceCounterBasedClass[idxPrmSet].valJumpDown;
+									if ((stPrevRawEvent == DEM_EVENT_STATUS_PREFAILED) && (ctCurrDeb > ctDebIni))
+									{
+										/* On conditions fullfilled, Reset debounce counter to new init value */
+										ctCurrDeb = ctDebIni;
+									}
+									else
+									{
+										/* On conditions NOT fullfilled, Do nothing */
+									}
+								}
+								else
+								{
+									/* On jump-down behavior is NOT configured, Do nothing */
+								}
+							
+								/* Check if debounce processing is on-going */
+								if ((ctCurrDeb - valDecrementStepSize) > valPassedThreshold)
+								{
+									/* On debounce processing is on-going , Deccrements debounce counter */
+									ctCurrDeb -= valDecrementStepSize;
+								}
+								else
+								{
+									/* On debounce processing is over, Force debounce counter and Sets status */
+									ctCurrDeb = valPassedThreshold;
+									stCurrDebEvent = DEM_EVENT_STATUS_PASSED;/*event is considered as passed*/
+								}
+							}
+							else
+							{
+								/* On event is healed, Do nothing*/
+							}
+						}
+						break;
+						
+						case DEM_EVENT_STATUS_PREFAILED:
+						{
+							/* Get configuration params for quicker access */
+							valIncrementStepSize = Dem_DebounceCounterBasedClass[idxPrmSet].valIncrementStepSize;
+							valFailedThreshold = Dem_DebounceCounterBasedClass[idxPrmSet].valFailedThreshold;						
+						
+							/* Check if debounce is on-going */
+							if (ctCurrDeb < valFailedThreshold)
+							{			
+								/* Check if jump-up behavior is configured */
+								if (Dem_DebounceCounterBasedClass[idxPrmSet].stJumpUp)
+								{
+									/* On jump-up behavior is configured, Check if conditions are fullfilled */
+									ctDebIni = Dem_DebounceCounterBasedClass[idxPrmSet].valJumpUp;
+									if ((stPrevRawEvent == DEM_EVENT_STATUS_PREPASSED) && (ctCurrDeb < ctDebIni))
+									{
+										/* On conditions fullfilled, Reset debounce counter to new init value */
+										ctCurrDeb = ctDebIni;
+									}
+									else
+									{
+										/* On conditions NOT fullfilled, Do nothing */
+									}
+								}
+								else
+								{
+									/* On jump-down behavior is NOT configured, Do nothing */
+								}
+						
+								/* Check if debounce processing is on-going */
+								if ((ctCurrDeb + valIncrementStepSize) < valFailedThreshold)
+								{
+									/* On debounce processing is on-going , Increment debounce counter */
+									ctCurrDeb += valIncrementStepSize;
+								}
+								else
+								{
+									/* On debounce processing is over, Force debounce counter and Sets status */
+									ctCurrDeb = valFailedThreshold;
+									stCurrDebEvent = DEM_EVENT_STATUS_FAILED;/*event is considered as failed*/
+								}
+							}
+							else
+							{
+								/* On event is already confirmed, Do nothing */
+							}
+						}
+						break;
+
+						case DEM_EVENT_STATUS_PASSED:
+						{
+							/* Force debounce counter to passed threshold */
+							ctCurrDeb = Dem_DebounceCounterBasedClass[idxPrmSet].valPassedThreshold;
+							stCurrDebEvent = DEM_EVENT_STATUS_PASSED;/*event is reported as passed*/
+						}
+						break;	
+						
+						case DEM_EVENT_STATUS_FAILED:
+						{
+							/* Force debounce counter to failed threshold */
+							ctCurrDeb = Dem_DebounceCounterBasedClass[idxPrmSet].valFailedThreshold;
+							stCurrDebEvent = DEM_EVENT_STATUS_FAILED;/*event is reported as failed*/
+						}
+						break;
+						
+						/* On unknown reported event status, Do nothing */
+						default:
+						{
+							stRetVal = E_NOT_OK;
+							/* HINTS : Error is NOT immediately forwarded to Det to spare runtime in critical section */
+						}
+						break;
+					}
+				
+				}
+				break;
+#endif
+
+#if (DEM_DEBOUNCE_TIME_BASED_SUPPORT == STD_ON)
+				/* On debounce algorithm class is time based, Return error */
+				case DEM_DEBOUNCE_ALGORITHM_TIME:
+				{	
+					stRetVal = E_NOT_OK;
+					/* HINTS : Error is NOT immediately forwarded to Det to spare runtime in critical section */
+				}
+				break;
+#endif
+				
+				/* On debounce algorithm class is native, Calls dedicated handler */
+				case DEM_DEBOUNCE_ALGORITHM_NATIVE:
+				{
+					stCurrDebEvent = stCurrRawEvent;
+				}
+				break;
+				
+				/* On unknown debounce algorithm, Return error */
+				default:
+				{
+					stRetVal = E_NOT_OK;
+					/* HINTS : Error is NOT immediately forwarded to Det to spare runtime in critical section */
+				}
+				break;
+				
+				/* HINTS : The "switch case" implementation is used intentionnaly 
+							to ease enhancement if additionnal debounce algoritm should be added */
+			}			
+			
+			/* Check for transition of event status after debouncing */
+			if (stCurrDebEvent != stPrevDebEvent)
+			{
+				/* On transition is detected, Check new value */
+				stEventStatusChanged = TRUE;
+				stPrevExtEvent = stCurrExtEvent;
+				if (stCurrDebEvent == DEM_EVENT_STATUS_FAILED)
+				{
+					Bfx_SetBit_u8u8(stCurrExtEvent, DEM_UDS_STATUS_TF);/*set UDS DTC status bit 0 (TestFailed)*/
+					Bfx_SetBit_u8u8(stCurrExtEvent, DEM_UDS_STATUS_TFTOC);/*set UDS DTC status bit 1 (TestFailedThisOperationCycle)*/
+					Bfx_SetBit_u8u8(stCurrExtEvent, DEM_UDS_STATUS_PDTC);/*set UDS DTC status bit 2 (PendingDTC)*/
+					Bfx_SetBit_u8u8(stCurrExtEvent, DEM_UDS_STATUS_CDTC);/*set UDS DTC status bit 3 (ConfirmedDTC)*/
+					Bfx_ClrBit_u8u8(stCurrExtEvent, DEM_UDS_STATUS_TNCTOC);/*reset UDS DTC status bit 6 (TestNotCompleteThisOperationCycle)*/
+					/* HINTS : DemEventFailureCycleCounterThreshold is considered as always equal to 1 
+								therefore UDS DTC status bit 2 (PendingDTC) and 3 (ConfirmedDTC) are raised together */
+					
+					/* Store freeze frame associated to current event */
+					//TODO : To be done
+					
+					/* Record current event into event memory */
+					#if (DEM_MAX_NUMBER_EVENT_ENTRY_PRIMARY > 0)
+					Dem_Prv_RecordEvent(EventId);
+					#endif			
+				}
+				else if (stCurrDebEvent == DEM_EVENT_STATUS_PASSED)
+				{
+					Bfx_ClrBit_u8u8(stCurrExtEvent, DEM_UDS_STATUS_TF);/*reset UDS DTC status bit 0 (TestFailed)*/
+					Bfx_ClrBit_u8u8(stCurrExtEvent, DEM_UDS_STATUS_TNCTOC);/*reset UDS DTC status bit 6 (TestNotCompleteThisOperationCycle)*/
+					//TODO : Merger les appels avec un et logique des masques ?
+				}
+				else
+				{
+					/* On unknown or undebounced status, Do nothing */
+				}				
+			}
+			else
+			{
+				/* On no transition is detected, Do nothing */
+			}
+			
+						
+			
+			/* Stores updated status */;
+			Dem_stExtEvent_a[EventId] = stCurrExtEvent;
+			Dem_ctDebouncing_a[EventId] = ctCurrDeb;
+			Dem_stRawEvent_a[EventId] = EventStatus;
+			Dem_stDebEvent_a[EventId] = stCurrDebEvent;
+			
+			/* Exit critical section */
+			Sys_ReleaseLock(Dem_IntFaultHndlMutex);
+			
+			/* Check for event status change */
+			if (stEventStatusChanged)
+			{
+				/* On event status change, Notify other components */
+				
+				/* Notify Dlt module *//* REQ : SWS_Dem_00517 */
+				#if (DEM_TRIGGER_DLT_REPORTS == STD_ON)
+				Dlt_DemTriggerOnEventStatus(EventId, stPrevExtEvent, stCurrExtEvent);
+				#endif
+			}
+			else
+			{
+			
+			}
+		}
+		else
+		{
+			/* On specified event is NOT valid, Return error */
+			stRetVal = E_NOT_OK;
+			
+			/* Trace error in Det if required */
+			#if (DEM_DEV_ERROR_DETECT == STD_ON)
+			Det_ReportError(DEM_MODULE_ID, 0, DEM_SETEVENTSTATUS_ID, DEM_E_PARAM_DATA);
+			#endif		
+		}
+	}
+	else
+	{
+		/* On Dem initialisation is still on-going, Return error */
+		stRetVal = E_NOT_OK;
+		
+		/* Trace error in Det if required */
+		#if (DEM_DEV_ERROR_DETECT == STD_ON)
+		Det_ReportError(DEM_MODULE_ID, 0, DEM_SETEVENTSTATUS_ID, DEM_E_UNINIT);
+		#endif		
+	}
+
+	return (stRetVal);
+}
+
+
+/*
+ ***************************************************************************************************
+ * Processes
+ ***************************************************************************************************
+*/
+
+/**
+ * \ingroup Dem
+ * \brief	Initialize the internal states necessary to process events re-ported by BSW-modules.
+ * \return	void
+ * \remarks
+ * \see	None
+ * \par Autosar standard
+ * SWS_Dem_01107
+*/
+void Dem_PreInit(void)
+{
+	/* Declaration of local variables */
+	uint32 idxEvent;
+	
+	/* Initialize the enable condition status array */
+	//TODO : A coder
+	
+	/* Initialize the event status handler array */
+#if (DEM_NUM_CFG_EVENT_MAX > 0)
+	for (idxEvent = 0; idxEvent < DEM_NUM_CFG_EVENT_MAX; idxEvent ++)
+	{
+		Dem_stExtEvent_a[idxEvent] = (DEM_UDS_STATUS_TNCTOC | DEM_UDS_STATUS_TNCSLC);
+	}
+#endif
+
+	/* Initialize event buffer */
+	//TODO : A coder
+
+	/* Initialize event memory */
+#if (DEM_MAX_NUMBER_EVENT_ENTRY_PRIMARY > 0)
+	for (idxEvent = 0; idxEvent < DEM_MAX_NUMBER_EVENT_ENTRY_PRIMARY; idxEvent ++)
+	{
+		Dem_xPrimaryMemory_a[idxEvent].idxEvent = MAXUINT16;
+		Dem_xPrimaryMemory_a[idxEvent].ctOccurence = 0;
+	}
+#endif
+	
+	
+	/* Initialize the FF buffer */
+	//TODO : A coder
+
+	
+	/* Update Dem initialisation status */
+	Dem_stInit = STD_INIT_STATE_PREINIT;
+	/* HINTS : Initialisation status is directly accessed here
+		since no other component could read this variable during pre-init stage */
+}
+
+
+/**
+ * \ingroup Dem
+ * \brief Initialize or reInitialize the Dem module
+ *
+ * commentaire supplémentaire
+ * \param	configPtr		Pointer to Dem module post-build configuration data
+ * \return	void
+ * \remarks
+ * \see	None
+ * \par Autosar standard
+ * SWS_Dem_00181, SWS_Dem_00340
+*/
+void Dem_Init(void)
+{
+    /* Update Dem initialisation status */
+	Dem_stInit = STD_INIT_STATE_INIT;
+}
+
+
+/**
+ * \ingroup Dem
+ * Processes all not event based Dem internal functions
+ *
+ * \return	void
+ * \remarks
+ * \see	None
+ * \par Autosar standard
+ * SWS_Dem_00266, SWS_Dem_00125
+*/
+void Dem_MainFunction(void)
+{
+	/* Declaration of local variables */
+	uint32 idxBufEvent;
+
+	/* Check if Dem is fully initialized */
+	if (Dem_stInit == STD_INIT_STATE_INIT)
+	{
+#if (DEM_BSW_ERROR_BUFFER_SIZE > 0)
+		/* On Dem is fully initialized, Check if some events are pending */
+		if (Dem_idxBufEvent > 0)
+		{
+			/* On some events are pending, Forwards event */
+			for (idxBufEvent = 0; idxBufEvent < Dem_idxBufEvent; idxBufEvent ++)
+			{
+			
+				Dem_SetEventStatus(Dem_idxBufEvent_a[idxBufEvent], Dem_stBufEvent_a[idxBufEvent]);
+			}
+			
+			/* Reset number of pending events */
+			Dem_idxBufEvent = 0;
+		}
+		else
+		{
+			/* On no events are pending, Do nothing */
+		}
+#endif
+	}
+	else
+	{
+		/* On Dem is not fully initialized, Do nothing */
+	}
+}
+
+/**
+ * \ingroup Dem
+ * Shuts down the Dem module
+ *
+ * commentaire supplémentaire
+ * \return	void
+ * \remarks
+ * \see	None
+ * \par Autosar standard
+ * SWS_Dem_00182
+*/
+void Dem_Shutdown(void)
+{
+	/* Update Dem initialisation status */
+	Dem_stInit = STD_INIT_STATE_UNINIT;
+}
+
+
+#endif /*DEM_NXC*/
+
