@@ -1,0 +1,406 @@
+/*
+ ***************************************************************************************************
+ * MARS - the open source AR platform for Mindstorm https://github.com/ToCap/Mars
+ *
+ * Copyright (C) 2020  GC-MS Software (ThomTheCat)
+ *
+ * This source code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 as published by the
+ * Free Software Foundation; See <http://www.gnu.org/licenses/old-licenses/gpl-2.0.txt>.
+ *
+ *  Software distributed under the License is distributed on an "AS IS"
+ *  basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
+ *  License for the specific language governing rights and limitations
+ *  under the License.
+ ***************************************************************************************************
+*/
+
+#ifndef DLT_NXC
+#define DLT_NXC
+/**
+ * \defgroup Dlt
+*/
+/*
+ ***************************************************************************************************
+ * Includes
+ ***************************************************************************************************
+*/
+#include "Bfx.h"
+#include "Sys.h"						/* visibility of BswLib services */
+
+#include "Det.h"						/**/
+#include "Dem.h"
+
+#include "Dlt.h"						/**/
+#include "Dlt_Prv.h"					/**/
+
+
+/*
+ ***************************************************************************************************
+ * Variables
+ ***************************************************************************************************
+*/
+
+/** \var Dlt_ctMessage
+ * \brief ???
+ * \par Autosar standard
+ * SWS_Dlt_00319, 
+ */
+uint8 Dlt_ctMessage;
+
+
+/** \var Dlt_stHeaderUseExtendedHeader
+ * \brief	represents the DltHeaderUseExtendedHeader configuration parameter
+ * \par Autosar standard
+ * SWS_Dlt_00077 
+ */
+boolean	Dlt_stHeaderUseExtendedHeader;
+
+/** \var Dlt_stHeaderUseExtendedHeader
+ * \brief	represents the DltHeaderUseTimestamp configuration parameter
+ * \par Autosar standard
+ * SWS_Dlt_00077 
+ */
+boolean	Dlt_stHeaderUseTimestamp;
+
+/** \var Dlt_stHeaderUseExtendedHeader
+ * \brief	represents the DltHeaderUseEcuId configuration parameter
+ * \par Autosar standard
+ * SWS_Dlt_00077 
+ */
+boolean	Dlt_stHeaderUseEcuId;
+
+/** \var Dlt_stHeaderUseExtendedHeader
+ * \brief	represents the DltHeaderUseEcuId configuration parameter
+ * \par Autosar standard
+ * SWS_Dlt_00077 
+ */
+boolean	Dlt_stHeaderUseEcuId;
+
+/** \var Dlt_stHeaderUseExtendedHeader
+ * \brief	represents the DltHeaderUseSessionId configuration parameter
+ * \par Autosar standard
+ * SWS_Dlt_00077 
+ */
+boolean	Dlt_stHeaderUseSessionId;
+
+
+/** \var Dlt_stHeaderUseExtendedHeader
+ * \brief	represents the DltHeaderUseVerboseMode configuration parameter
+ * \par Autosar standard
+ * SWS_Dlt_00077 
+ */
+boolean	Dlt_stHeaderUseVerboseMode;
+
+/*
+ ***************************************************************************************************
+ * Functions
+ ***************************************************************************************************
+*/
+
+
+Std_ReturnType Dlt_Prv_SendMessage(Dlt_SessionIDType session_id, Dlt_MessageArgumentCount arg_count, Dlt_MessageOptionsType options, Dlt_ContextIDType context_id, Dlt_ApplicationIDType app_id, const uint8* data, uint16 data_length)
+{
+	/* Declaration of local variables */
+	uint32 idxBufData;
+	uint8 xBuffer[256];//TODO : Mettre la bonne valeur
+	uint32 ctTimeStamp;
+	uint16 idxWr;
+	uint16 ctMessageLength;
+	uint8 stStandardHeader;
+	uint8 stMessageInfo;
+	Std_ReturnType stRetVal;
+
+	/* Initialize variables with default value */
+	idxWr = 0;
+	stStandardHeader = 0;				/**/
+	stMessageInfo = 0;					/**/
+	stRetVal = E_OK;					/*operation successful*/
+	
+	
+#if (DLT_IMPLEMENT_VERBOSE_MODE != STD_ON)/*REQ : SWS_Dlt_00090 */
+	/* Compute size of overhall message */
+	if (options.verbose_mode)
+	{
+		return DLT_E_NOT_IN_VERBOSE_MODE;
+	}
+
+#endif
+
+	/* Check size of overall message */
+	if ((sizeof(Dlt_Prv_StandardHeaderType) + sizeof(Dlt_Prv_ExtendedHeaderType) + data_length ) < DLT_MAX_MESSAGE_LENGTH)
+	{
+		/* Copy current time stamp */
+		ctTimeStamp = 0;//TODO : A coder /* REQ : SWS_Dlt_00083, SWS_Dlt_00112 */
+		/* HINTS : Copy of time stamp is done at beginning of service whatever WTMS status to ensure it hold the timestamp from the moment SWC sends the message */
+		
+		/* Increment number of sent message */
+		Dlt_ctMessage ++;/* REQ : SWS_Dlt_00084 */
+		
+		/* Copy payload into temporary buffer */
+		BswLib_MemCpy((xBuffer + sizeof(Dlt_Prv_StandardHeaderType) + sizeof(Dlt_Prv_ExtendedHeaderType)), data, data_length);/* REQ : SWS_Dlt_00080, SWS_Dlt_00089*/
+		/* HINTS : Copy of payload is done at beginning of service to ensure validity of buffer allocated by producer SW-C */	
+		
+		/* Prepare HTYP information of standard header */
+		Bfx_PutBit_u8u8u8(&stStandardHeader, 0, Dlt_stHeaderUseExtendedHeader);
+		Bfx_PutBit_u8u8u8(&stStandardHeader, 1, FALSE);/*payload data is always sent in LSB format*///TODO : a vérifier comment fonctionne l'échange avec le SWC
+		Bfx_PutBit_u8u8u8(&stStandardHeader, 2, Dlt_stHeaderUseEcuId);/* REQ : SWS_Dlt_00407*/
+		Bfx_PutBit_u8u8u8(&stStandardHeader, 3, Dlt_stHeaderUseSessionId);
+		Bfx_PutBit_u8u8u8(&stStandardHeader, 4, Dlt_stHeaderUseTimestamp);
+		
+		/* Fill mandatory part of standard header in buffer for sent */
+		((Dlt_Prv_StandardHeaderType*)xBuffer).HTYP = stStandardHeader;
+		((Dlt_Prv_StandardHeaderType*)xBuffer).MCNT = Dlt_ctMessage;
+		((Dlt_Prv_StandardHeaderType*)xBuffer).LEN = 0;
+		idxWr = 4;/*size of mandatory part of standard header*/
+		/* HINTS : Size of message is filled after adding message standard and extended headers to have a common way to compute size and fill optional fields*/
+
+		/* Fill ECU ID if required */	
+		if (Dlt_stHeaderUseEcuId)
+		{
+			*((uint32*)(xBuffer + idxWr)) = 0x4D657253;
+			idxWr += 4;
+		}
+		
+		/* Fill Session ID if required */
+		if (Dlt_stHeaderUseSessionId)
+		{
+			*((uint32*)(xBuffer + idxWr)) = session_id;/* SWS_Dlt_00085 */
+			idxWr += 4;
+		}
+		
+		if (Dlt_stHeaderUseTimestamp)
+		{
+			*((uint32*)(xBuffer + idxWr)) = ctTimeStamp;
+			idxWr += 4;
+		}
+
+#if (DLT_IMPLEMENT_EXTENDED_HEADER == STD_ON)/* REQ : SWS_Dlt_00087 */
+		if (Dlt_stHeaderUseExtendedHeader)/* REQ : SWS_Dlt_00086 */
+		{
+			
+			((Dlt_Prv_ExtendedHeaderMessageInfoType*)&stMessageInfo).VERB = options.verbose_mode;/* REQ : SWS_Dlt_00088 */
+			((Dlt_Prv_ExtendedHeaderMessageInfoType*)&stMessageInfo).MSTP = 0;//TODO : A coder
+			((Dlt_Prv_ExtendedHeaderMessageInfoType*)&stMessageInfo).MTIN = 0;//TODO : A coder
+		
+			((Dlt_Prv_ExtendedHeaderType*)(xBuffer + idxWr)).MSIN = stMessageInfo;
+			((Dlt_Prv_ExtendedHeaderType*)(xBuffer + idxWr)).NOAR = (uint8)arg_count;/* REQ : SWS_Dlt_00088 */
+			((Dlt_Prv_ExtendedHeaderType*)(xBuffer + idxWr)).APIID = app_id;/* REQ : SWS_Dlt_00088 */
+			((Dlt_Prv_ExtendedHeaderType*)(xBuffer + idxWr)).CTID = context_id;/* REQ : SWS_Dlt_00088 */
+			
+			/* HINTS : According to Autosar standard, NOAR is typed as 8bits integer and arg_count is typed as 16bits integer */
+			
+			idxWr += sizeof(Dlt_Prv_ExtendedHeaderType);
+		}
+#endif
+
+		/* Compute message length */
+		ctMessageLength = idxWr + data_length;
+
+		
+		/* Copy payload into temporary buffer at proper location depending on size of headers */
+		BswLib_MemCpy((xBuffer + idxWr), (xBuffer + sizeof(Dlt_Prv_StandardHeaderType) + sizeof(Dlt_Prv_ExtendedHeaderType)), data_length);
+		
+		/* Fill real size of message in buffer for sent */
+		((Dlt_Prv_StandardHeaderType*)xBuffer).LEN = ctMessageLength;/* REQ : SWS_Dlt_00085 */
+	}
+	else
+	{
+		/* On message is too large, Return error */
+		stRetVal = E_NOT_OK;
+	}
+	
+	printf("\n\n--. DLT message\n");
+	printf("\tdata=");
+	for (idxBufData = 0; idxBufData < data_length; idxBufData ++)
+	{
+		printf("%s", &data[idxBufData]);
+	}
+	
+	return stRetVal;
+}
+
+
+
+/*
+ ***************************************************************************************************
+ * Services
+ ***************************************************************************************************
+*/
+
+
+/**
+ * \ingroup Dlt
+ * \brief	Forward error reports from Det to Dlt
+ * \param	EventId		Identifier of an Event by assigned event number
+ * \param	EventStatusByteOld	
+ * \param	EventStatusByteNew	
+ * \return	None
+ * \see	None
+ * \par Autosar standard
+ * SWS_Dlt_00470, SWS_Dlt_00474, SWS_Dlt_00475
+*/
+void Dlt_DemTriggerOnEventStatus(Dem_EventIdType EventId, Dem_UdsStatusByteType EventStatusByteOld, Dem_UdsStatusByteType EventStatusByteNew)
+{
+	/* Declaration of local variables */
+	Dlt_MessageLogInfoType xMessageLogInfo;
+	Dlt_Prv_DemPayload xBuf;
+	
+	
+	/* Check if event status changed */
+	if (EventStatusByteOld != EventStatusByteNew)/* REQ : SWS_Dlt_00475 */
+	{
+		/* Build info of log message */
+		xMessageLogInfo.app_id = 0;
+		xMessageLogInfo.context_id = 0;
+		xMessageLogInfo.options.message_type = 0;//TODO : A coder
+		/* REQ : SWS_Dlt_00377 */
+		
+		/* Build payload */
+		xBuf.EventId = EventId;
+		xBuf.DTCOfEvent = 0;//TODO : A coder
+		//TODO : A coder
+		/* REQ : SWS_Dlt_00476 */
+	
+		/* On event status changes, send a log message */
+		Dlt_SendLogMessage(MODULE_ID_DET, &xMessageLogInfo, (uint8*)&xBuf, sizeof(Dlt_Prv_DemPayload));/* REQ : SWS_Dlt_00431 */
+	}
+	else
+	{
+		/* Do nothing */
+	}
+}
+
+
+/**
+ * \ingroup Dlt
+ * \brief	Forward error reports from Det to Dlt
+ * \param	ModuleId	Identifier of caller module
+ * \param	InstanceId	Identifier of the index based instance of a module, starting from 0, If 
+the module is a single instance module it shall pass 0 as the InstanceId
+ * \param	ApiId		Identifier of API service in which error is detected (defined in SWS of calling module)
+ * \param	ErrorId		Identifier of detected development error
+ * \return	None
+ * \see	None
+ * \par Autosar standard
+ * SWS_Dlt_00430, SWS_Dlt_00432, SWS_Dlt_00432
+*/
+void Dlt_DetForwardErrorTrace(uint16 ModuleId, uint8 InstanceId, uint8 ApiId, uint8 ErrorId)
+{
+	/* Declaration of local variables */
+	Dlt_MessageLogInfoType xMessageLogInfo;
+	Dlt_Prv_DetPayload xBuf;
+	
+	/* Build info of log message */
+	xMessageLogInfo.app_id = 0;
+	xMessageLogInfo.context_id = 0;
+	xMessageLogInfo.options.message_type = 0;//TODO : A coder
+	/* REQ : SWS_Dlt_00376 */
+	
+	/* Build payload */
+	xBuf.xModuleId = ModuleId;
+	xBuf.xInstanceId = InstanceId;
+	xBuf.xApiId = ApiId;
+	xBuf.xErrorId = ErrorId;
+	/* REQ : SWS_Dlt_00480 */
+	
+	Dlt_SendLogMessage(MODULE_ID_DET, &xMessageLogInfo, (uint8*)&xBuf, sizeof(Dlt_Prv_DetPayload));/* REQ : SWS_Dlt_00431 */
+}
+
+
+/**
+ * \ingroup Dlt
+ * \brief	Return the version information of this module
+ * \param	versioninfo Pointer to where to store the version information of this module
+ * \return	None
+ * \see	None
+ * \par Autosar standard
+ * SWS_Dlt_00271
+*/
+#if (DLT_VERSION_INFO_API == STD_ON)
+void Dlt_GetVersionInfo(P2VAR(Std_VersionInfoType) versioninfo)
+{
+	/* Copy module information */
+	versioninfo.vendorID = DLT_VENDOR_ID;
+	versioninfo.moduleID = DLT_MODULE_ID;
+	
+	/* Copy version information */
+	versioninfo.sw_major_version = DLT_SW_MAJOR_VERSION;
+	versioninfo.sw_minor_version = DLT_SW_MINOR_VERSION;
+	versioninfo.sw_patch_version = DLT_SW_PATCH_VERSION;
+}
+#endif
+
+
+/**
+ * \ingroup Dlt
+ * \brief	Return the version information of this module
+ * \param	versioninfo Pointer to where to store the version information of this module
+ * \return	None
+ * \see	None
+ * \par Autosar standard
+ * SWS_Dlt_00241
+ * Deviations : SWS_Dlt_00091 is not fulfilled and standard/extended headers are in LSB format
+*/
+Std_ReturnType Dlt_SendLogMessage(Dlt_SessionIDType session_id, const Dlt_MessageLogInfoType* log_info, const uint8* log_data, uint16 log_data_length)
+{
+
+	return Dlt_Prv_SendMessage(session_id,
+						log_info.arg_count,
+						log_info.options,
+						log_info.context_id,
+						log_info.app_id,
+						log_data,
+						log_data_length);
+}
+
+
+/**
+ * \ingroup Dlt
+ * \brief	Return the version information of this module
+ * \param	versioninfo Pointer to where to store the version information of this module
+ * \return	None
+ * \see	None
+ * \par Autosar standard
+ * SWS_Dlt_00243
+*/
+Std_ReturnType Dlt_SendTraceMessage(Dlt_SessionIDType session_id, const Dlt_MessageTraceInfoType* trace_info, const uint8* trace_data, uint16 trace_data_length)
+{
+
+	return Dlt_Prv_SendMessage(session_id,
+						0,
+						trace_info.options,
+						trace_info.context_id,
+						trace_info.app_id,
+						trace_data,
+						trace_data_length);
+}
+
+
+
+
+/*
+ ***************************************************************************************************
+ * Processes
+ ***************************************************************************************************
+*/
+
+/**
+ * \ingroup Dlt
+ * \brief Initialize or reinitializes the Dem module
+ *
+ * commentaire supplementaire
+ * \param	configPtr		Pointer to Dem module post-build configuration data
+ * \return	void
+ * \remarks
+ * \see	None
+ * \par Autosar standard
+ * SWS_Dlt_00239, SWS_Dlt_00450
+ * Deviations : SWS_Dlt_00491 is not fullfiled since no EEP mechanism is provided in Mindstorm EV2 hardware
+*/
+void Dlt_Init(void)
+{
+}
+
+#endif /*DLT_NXC*/
+
