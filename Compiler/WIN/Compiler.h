@@ -37,7 +37,11 @@
  ***************************************************************************************************
 */
 
-
+/*! 
+ * \ingroup Compiler
+ *  Determines if compiler supports bit field
+ */
+#define COMPILER_BIT_FIELD_SUPPORT		STD_ON
 
 /*! 
  * \ingroup Compiler

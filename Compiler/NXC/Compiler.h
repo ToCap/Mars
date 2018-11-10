@@ -28,10 +28,8 @@
  * Includes
  ***************************************************************************************************
 */
-/* Includes of standard headers */
 #include "Std_Types.h"
 
-/* Includes of specific headers */
 #include "Compiler_Cfg.h"
 
 
@@ -40,6 +38,13 @@
  * Constants
  ***************************************************************************************************
 */
+
+/*! 
+ * \ingroup Compiler
+ *  Determines if compiler supports bit field
+ */
+#define COMPILER_BIT_FIELD_SUPPORT		STD_OFF
+
 /*! 
  * \ingroup Compiler
  *  This is the first group
