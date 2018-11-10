@@ -1,0 +1,194 @@
+/*
+ ***************************************************************************************************
+ * MARS - the open source AR platform for Mindstorm https://github.com/ToCap/Mars
+ *
+ * Copyright (C) 2020  GC-MS Software (ThomTheCat)
+ *
+ * This source code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 as published by the
+ * Free Software Foundation; See <http://www.gnu.org/licenses/old-licenses/gpl-2.0.txt>.
+ *
+ *  Software distributed under the License is distributed on an "AS IS"
+ *  basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
+ *  License for the specific language governing rights and limitations
+ *  under the License.
+ ***************************************************************************************************
+*/
+
+#ifndef IOLIB_NXC
+#define IOLIB_NXC
+
+/*
+ ***************************************************************************************************
+ * Includes
+ ***************************************************************************************************
+*/
+#include "Det.h"
+#include "Dem.h"	
+#include "IoLib.h"							/**/
+
+
+/*
+ ***************************************************************************************************
+ * Types
+ ***************************************************************************************************
+*/
+
+TYPEDEF struct IoLib_Prv_SensorCfgType
+{
+	string name;
+	IoLib_SensorType type;
+	IoLib_SensorMode mode;
+	boolean monitoring;
+};
+
+/*
+ ***************************************************************************************************
+ * Variables
+ ***************************************************************************************************
+*/
+IoLib_Prv_SensorCfgType	IoLib_Prv_SensorCfg[IOLIB_NUM_SENSOR_MAX];
+
+/*
+ ***************************************************************************************************
+ * Functions
+ ***************************************************************************************************
+*/
+
+/**
+ * \ingroup IoLib
+ * Read configured mode on sensor specified by its port
+ *
+ * \param	Port		Identification of a sensor port
+ * \return	None
+ * 
+ * \warning : Internal service without validity check of input parameters
+ * \see	None
+*/
+INLINE IoLib_SensorType IoLib_Prv_ReadSensorType(IoLib_PortSensorType Port)
+{
+	/* HINTS : NO*/
+	return IOLIB_SENSOR_TYPE_NONE;
+}
+
+/*
+ ***************************************************************************************************
+ * Services
+ ***************************************************************************************************
+*/
+Std_ReturnType IoLib_DeclareSensor(IoLib_PortSensorType Port, string Name, IoLib_SensorType Type, IoLib_SensorMode Mode)
+{
+	/* Declaration of local variables */
+	Std_ReturnType stRetVal;
+	
+	/* Initialize variables with default value */
+	stRetVal = E_OK;					/*operation successful*/
+	
+	/* Check if port index is valid */
+	if (Port < IOLIB_NUM_SENSOR_MAX)
+	{
+		IoLib_Prv_SensorCfg[Port].name = Name;
+		IoLib_Prv_SensorCfg[Port].type = Type;
+		IoLib_Prv_SensorCfg[Port].mode = Mode;
+		
+		//TODO : Add a check on mode validity against type
+	}
+	else
+	{
+		/* On port index is NOT valid, Return error */
+		stRetVal = E_NOT_OK;
+		
+		/* Trace error in Det if required */
+		#if (DEM_DEV_ERROR_DETECT == STD_ON)
+		Det_ReportError(IOLIB_MODULE_ID, 0, IOLIB_DECLARESENSOR_ID, IOLIB_E_PARAM_DATA);
+		#endif		
+	}
+	
+	return stRetVal;
+}
+
+/**
+ * \ingroup IoLib
+ * \brief	Returns the version information of this module
+ * \param[out] versioninfo Pointer to where to store the version information of this module
+ * \return	None
+ * \see	None
+*/
+void IoLIb_GetVersionInfo(P2VAR(Std_VersionInfoType) versioninfo)
+{
+	/* Copy module information */
+	versioninfo.vendorID = IOLIB_VENDOR_ID;
+	versioninfo.moduleID = IOLIB_MODULE_ID;
+	
+	/* Copy version information */
+	versioninfo.sw_major_version = IOLIB_SW_MAJOR_VERSION;
+	versioninfo.sw_minor_version = IOLIB_SW_MINOR_VERSION;
+	versioninfo.sw_patch_version = IOLIB_SW_PATCH_VERSION;
+}
+
+
+Std_ReturnType IoLib_SetSensorMonitoring(IoLib_PortSensorType Port, boolean Monitoring)
+{
+	/* Declaration of local variables */
+	Std_ReturnType stRetVal;
+	
+	/* Initialize variables with default value */
+	stRetVal = E_OK;					/*operation successful*/
+	
+	/* Check if port index is valid */
+	if (Port < IOLIB_NUM_SENSOR_MAX)
+	{
+		IoLib_Prv_SensorCfg[Port].monitoring = Monitoring;
+		
+		if (Monitoring)
+		{
+			//TODO : declare events for open and mismatch
+		}
+	}
+	else
+	{
+		/* On port index is NOT valid, Return error */
+		stRetVal = E_NOT_OK;
+		
+		/* Trace error in Det if required */
+		#if (DEM_DEV_ERROR_DETECT == STD_ON)
+		Det_ReportError(IOLIB_MODULE_ID, 0, IOLIB_SETSENSORMONITORING_ID, IOLIB_E_PARAM_DATA);
+		#endif		
+	}
+	
+	return stRetVal;
+}
+
+
+/*
+ ***************************************************************************************************
+ * Processes
+ ***************************************************************************************************
+*/
+void IoLib_MainFunction(void)
+{
+	/* Declaration of local variables */
+	uint8 idxSensorPort;
+	IoLib_PortSensorType type;
+	
+	for (idxSensorPort = 0; idxSensorPort < IOLIB_NUM_SENSOR_MAX; idxSensorPort ++)
+	{
+		if (IoLib_Prv_SensorCfg[idxSensorPort].monitoring)
+		{
+			type = IoLib_Prv_ReadSensorType(idxSensorPort);
+			if (IOLIB_SENSOR_TYPE_NONE == type)
+			{
+				//TODO : Raise a open line error
+			}
+			else if (IoLib_Prv_SensorCfg[idxSensorPort].type != type)
+			{
+				//TODO : Raise a mismatch line error
+			}
+			else
+			{
+				/* Do nothing */
+			}
+		}
+	}
+}
+#endif /*IOLIB_NXC*/
