@@ -22,51 +22,21 @@
  * \defgroup Compiler
 */
 
-
-/*!
- * \ingroup Compiler
- * \file Compiler.h
- * xxxx
- * \par Autosar standard
- * SWS_Compiler_00004, SWS_Compiler_00053, SWS_Compiler_00047
+/*
+ ***************************************************************************************************
+ * Includes
+ ***************************************************************************************************
 */
-
-/*---------------------------------------------------- Headers --------------------------------------------------*/
-
-/* Includes of standard headers */
 #include "Std_Types.h"
-
-/* Includes of specific headers */
 #include "Compiler_Cfg.h"
 
 
-/*---------------------------------------------------------------------------------------------------------------*/
+/*
+ ***************************************************************************************************
+ * Constants
+ ***************************************************************************************************
+*/
 
-
-/*--------------------------------------------------- Constants -------------------------------------------------*/
-
-/*! 
- * \ingroup Platform 
- * \defgroup Compiler
- *  This is the first group
- * \sa CPU_BYTE_ORDER
- * \par Autosar standard
- * Addition to Autosar standard to deal with name in structure declaration pattern
- *  @{
- */
-#define STRUCT_NAME_FIRST					0
-#define STRUCT_NAME_LAST    				1
-/** @} */ // end of CPU_BYTE_ORDERS
-
-
-/*! 
- * \ingroup Platform
- * \def CPU_BYTE_ORDER
- *  This is the first group
- * \par Autosar standard
- * SWS_Platform_00046, SWS_Platform_00050, SWS_Platform_00051
- */
-#define COMPILER_STRUCT_NAME				STRUCT_NAME_LAST
 
 
 /*! 
@@ -145,12 +115,6 @@
  */		
 #define P2VAR(ptrtype) ptrtype *
 
-
-#define ADDRESS
-
-
-
-/*---------------------------------------------------------------------------------------------------------------*/
 
 
 #endif /*COMPILER_H*/
