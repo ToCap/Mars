@@ -123,15 +123,15 @@ uint16 Dem_ctBufEvent;
 /** \var Dem_ctDebouncing_a
  *  \brief ???
  */
-sint16	Dem_ctDebouncing_a[DEM_NUM_EVENT_MAX];
+sint16	Dem_ctDebouncing_a[DEM_NUM_CFG_EVENT_MAX];
 
-Dem_UdsStatusByteType Dem_stExtEvent_a[DEM_NUM_EVENT_MAX];
+Dem_UdsStatusByteType Dem_stExtEvent_a[DEM_NUM_CFG_EVENT_MAX];
 
-Dem_EventStatusType Dem_stRawEvent_a[DEM_NUM_EVENT_MAX];
+Dem_EventStatusType Dem_stRawEvent_a[DEM_NUM_CFG_EVENT_MAX];
 
-Dem_EventStatusType Dem_stDebEvent_a[DEM_NUM_EVENT_MAX];
+Dem_EventStatusType Dem_stDebEvent_a[DEM_NUM_CFG_EVENT_MAX];
 
-uint8 Dem_idxEventMemory_a[DEM_NUM_EVENT_MAX];
+uint8 Dem_idxEventMemory_a[DEM_NUM_CFG_EVENT_MAX];
 
 
 Dem_EventMemoryEntry Dem_xPrimaryMemory_a[DEM_MAX_NUMBER_EVENT_ENTRY_PRIMARY];
