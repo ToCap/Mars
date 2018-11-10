@@ -39,8 +39,7 @@
  ***************************************************************************************************
 */
 
-#define PLATFORM_NXT_EV2				1
-#define PLATFORM_NXT_EV2_VPF			100
+
 
 /*! 
  * \ingroup Platform 
@@ -91,15 +90,6 @@
  */
 #define CPU_TYPE						CPU_TYPE_32
 
-
-/*! 
- * \ingroup Platform
- * \def PLATFORM_TYPE
- *  This is the first group
- * \par Autosar standard
- * Custom
- */
-#define PLATFORM_TYPE					PLATFORM_NXT_EV2_VPF
 
 /*! 
  * \ingroup Platform
