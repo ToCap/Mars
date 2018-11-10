@@ -159,6 +159,15 @@
  * Types
  ***************************************************************************************************
 */
+
+/*! 
+ * \ingroup Platform
+ *  This is the first group
+ * \par Autosar standard
+ * 
+ */
+typedef string string
+
 /*! 
  * \ingroup Platform
  *  This is the first group
