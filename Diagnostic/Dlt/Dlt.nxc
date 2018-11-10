@@ -71,13 +71,6 @@ boolean	Dlt_stHeaderUseTimestamp;
 boolean	Dlt_stHeaderUseEcuId;
 
 /** \var Dlt_stHeaderUseExtendedHeader
- * \brief	represents the DltHeaderUseEcuId configuration parameter
- * \par Autosar standard
- * SWS_Dlt_00077 
- */
-boolean	Dlt_stHeaderUseEcuId;
-
-/** \var Dlt_stHeaderUseExtendedHeader
  * \brief	represents the DltHeaderUseSessionId configuration parameter
  * \par Autosar standard
  * SWS_Dlt_00077 
@@ -138,7 +131,7 @@ Std_ReturnType Dlt_Prv_SendMessage(Dlt_SessionIDType session_id, Dlt_MessageArgu
 		Dlt_ctMessage ++;/* REQ : SWS_Dlt_00084 */
 		
 		/* Copy payload into temporary buffer */
-		BswLib_MemCpy((xBuffer + sizeof(Dlt_Prv_StandardHeaderType) + sizeof(Dlt_Prv_ExtendedHeaderType)), data, data_length);/* REQ : SWS_Dlt_00080, SWS_Dlt_00089*/
+		Sys_MemCpy((xBuffer + sizeof(Dlt_Prv_StandardHeaderType) + sizeof(Dlt_Prv_ExtendedHeaderType)), data, data_length);/* REQ : SWS_Dlt_00080, SWS_Dlt_00089*/
 		/* HINTS : Copy of payload is done at beginning of service to ensure validity of buffer allocated by producer SW-C */	
 		
 		/* Prepare HTYP information of standard header */
@@ -199,7 +192,7 @@ Std_ReturnType Dlt_Prv_SendMessage(Dlt_SessionIDType session_id, Dlt_MessageArgu
 
 		
 		/* Copy payload into temporary buffer at proper location depending on size of headers */
-		BswLib_MemCpy((xBuffer + idxWr), (xBuffer + sizeof(Dlt_Prv_StandardHeaderType) + sizeof(Dlt_Prv_ExtendedHeaderType)), data_length);
+		Sys_MemCpy((xBuffer + idxWr), (xBuffer + sizeof(Dlt_Prv_StandardHeaderType) + sizeof(Dlt_Prv_ExtendedHeaderType)), data_length);
 		
 		/* Fill real size of message in buffer for sent */
 		((Dlt_Prv_StandardHeaderType*)xBuffer).LEN = ctMessageLength;/* REQ : SWS_Dlt_00085 */
@@ -210,12 +203,12 @@ Std_ReturnType Dlt_Prv_SendMessage(Dlt_SessionIDType session_id, Dlt_MessageArgu
 		stRetVal = E_NOT_OK;
 	}
 	
-	printf("\n\n--. DLT message\n");
-	printf("\tdata=");
-	for (idxBufData = 0; idxBufData < data_length; idxBufData ++)
-	{
-		printf("%s", &data[idxBufData]);
-	}
+	//printf("\n\n--. DLT message\n");
+	//printf("\tdata=");
+	//for (idxBufData = 0; idxBufData < data_length; idxBufData ++)
+	//{
+	//	printf("%s", &data[idxBufData]);
+	//}
 	
 	return stRetVal;
 }
