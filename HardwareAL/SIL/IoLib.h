@@ -99,11 +99,10 @@
  ***************************************************************************************************
 */
 #if (IOLIB_VERSION_INFO_API == STD_ON)
-void IoLib_GetVersionInfo(Std_VersionInfoType* versioninfo);
+void IoLib_GetVersionInfo(P2VAR(Std_VersionInfoType) versioninfo);
 #endif
-Std_ReturnType IoLib_ConfigurePortFailure(IoLib_PortSensorType Port, IoLib_SensorFailureType Failure, Dem_EventIdType EventId);
-Std_ReturnType IoLib_GetSensorMode(IoLib_PortSensorType Port, IoLib_SensorMode* Mode);
-Std_ReturnType IoLib_GetSensorType(IoLib_PortSensorType Port, IoLib_SensorType* Type);
+Std_ReturnType IoLib_GetSensorMode(IoLib_PortSensorType Port, P2VAR(IoLib_SensorMode) Mode);
+Std_ReturnType IoLib_GetSensorType(IoLib_PortSensorType Port, P2VAR(IoLib_SensorType) Type);
 Std_ReturnType IoLib_SetSensorMode(IoLib_PortSensorType Port, IoLib_SensorMode Mode);
 Std_ReturnType IoLib_SetSensorType(IoLib_PortSensorType Port, IoLib_SensorType Type);
 
