@@ -39,8 +39,6 @@
  ***************************************************************************************************
 */
 
-#define PLATFORM_NXT_EV2				1
-#define PLATFORM_NXT_EV2_VPF			100
 
 /*! 
  * \ingroup Platform 
@@ -160,13 +158,6 @@
  ***************************************************************************************************
 */
 
-/*! 
- * \ingroup Platform
- *  This is the first group
- * \par Autosar standard
- * 
- */
-typedef string string
 
 /*! 
  * \ingroup Platform
