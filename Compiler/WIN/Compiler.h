@@ -45,6 +45,12 @@
 
 /*! 
  * \ingroup Compiler
+ *  Determines if compiler supports C-pointer mechanism
+ */
+#define COMPILER_POINTER_SUPPORT		STD_ON
+
+/*! 
+ * \ingroup Compiler
  *  This is the first group
  * \par Autosar standard
  * SWS_COMPILER_00046

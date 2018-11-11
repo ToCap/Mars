@@ -45,6 +45,13 @@
  */
 #define COMPILER_BIT_FIELD_SUPPORT		STD_OFF
 
+
+/*! 
+ * \ingroup Compiler
+ *  Determines if compiler supports C-pointer mechanism
+ */
+#define COMPILER_POINTER_SUPPORT		STD_OFF
+
 /*! 
  * \ingroup Compiler
  *  This is the first group
