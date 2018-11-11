@@ -87,21 +87,28 @@ TYPEDEF struct Dlt_Prv_ExtendedHeaderType
 
 TYPEDEF struct Dlt_Prv_ExtendedHeaderMessageInfoType
 {
+#if (COMPILER_BIT_FIELD_SUPPORT == STD_ON)
 	uint8	VERB : 1;
 	uint8	MSTP : 3;
 	uint8	MTIN : 4;
-
+#else
+	uint8	data;
+#endif
 } ;
 
 
 TYPEDEF struct Dlt_Prv_StandardHeaderStatusType
 {
+#if (COMPILER_BIT_FIELD_SUPPORT == STD_ON)
 	uint8	UEH : 1;
 	uint8	MSBF : 1;
 	uint8	WEID : 1;
 	uint8	WSID : 1;
 	uint8	WTMS : 1;
 	uint8	VERS : 3;
+#else
+	uint8 data;
+#endif
 
 } ;
 
