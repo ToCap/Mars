@@ -1,35 +1,39 @@
+/*
+ ***************************************************************************************************
+ * MARS - the open source AR platform for Mindstorm https://github.com/ToCap/Mars
+ *
+ * Copyright (C) 2020  GC-MS Software (ThomTheCat)
+ *
+ * This source code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 as published by the
+ * Free Software Foundation; See <http://www.gnu.org/licenses/old-licenses/gpl-2.0.txt>.
+ *
+ *  Software distributed under the License is distributed on an "AS IS"
+ *  basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
+ *  License for the specific language governing rights and limitations
+ *  under the License.
+ ***************************************************************************************************
+*/
+
 #ifndef STD_TYPES_H
 #define STD_TYPES_H
 
 
-/**
- * \defgroup SoftwareArchitecture
+/*
+ ***************************************************************************************************
+ * Includes
+ ***************************************************************************************************
 */
-/**
- * \ingroup SoftwareArchitecture
- * \defgroup General
-*/
-
-/** \file std_types.h
- * xxxx
- * \par Autosar standard
- * SWS_Std_00014
-*/
-
-
-/*---------------------------------------------------- Headers --------------------------------------------------*/
-/* Include standard headers */
 #include "Compiler.h"
 #include "Platform_Types.h"
-
-/* Include common headers */
 #include "modules.h"
 
-/*---------------------------------------------------------------------------------------------------------------*/
 
-
-/*--------------------------------------------------- Constants -------------------------------------------------*/
-
+/*
+ ***************************************************************************************************
+ * Constants
+ ***************************************************************************************************
+*/
 /*! 
  * \ingroup General
  * \defgroup Std_ReturnTypes
@@ -79,11 +83,12 @@
 
 /** @} */ // end of Std_InitStates
 
-/*---------------------------------------------------------------------------------------------------------------*/
 
-
-/*----------------------------------------------------- Types ---------------------------------------------------*/
-
+/*
+ ***************************************************************************************************
+ * TYPES
+ ***************************************************************************************************
+*/
 
 /*! 
  * \ingroup General
@@ -101,14 +106,13 @@ typedef uint8 Std_ReturnType;
  * \par Autosar standard
  * SWS_Std_00015 (SRS_BSW_00004)
  */
-typedef struct
+TYPEDEF struct Std_VersionInfoType
 {
 	uint16	vendorID;
 	uint16	moduleID;
 	uint8	sw_major_version;
 	uint8	sw_minor_version;
 	uint8	sw_patch_version;
-} Std_VersionInfoType;
+} ;
 
-/*---------------------------------------------------------------------------------------------------------------*/
 #endif /*STD_TYPES_H*/
