@@ -71,11 +71,18 @@
  *  @{
  */
  
-#define IOLIB_PORT_ACTUATOR_A				PORT_PIN_OUT_A
-#define IOLIB_PORT_ACTUATOR_B				PORT_PIN_OUT_B
-#define IOLIB_PORT_ACTUATOR_C				PORT_PIN_OUT_C
-//TODO : Definir les combinaisons
+#define IOLIB_PORT_ACTUATOR_A				0x00
+#define IOLIB_PORT_ACTUATOR_B				0x01
+#define IOLIB_PORT_ACTUATOR_C				0x02
+#define IOLIB_PORT_ACTUATOR_AB				0x03
+#define IOLIB_PORT_ACTUATOR_AC				0x04
+#define IOLIB_PORT_ACTUATOR_BC				0x05
+#define IOLIB_PORT_ACTUATOR_ABC				0x06
+
+
 /** @} */ // end of IoLib_PortActuatorTypes 
+
+#define IOLIB_NUM_ACTUATOR_MAX				7
 
 /*! 
  * \ingroup IoLib 
