@@ -42,12 +42,20 @@ TYPEDEF struct IoLib_Prv_SensorCfgType
 	boolean monitoring;
 };
 
+TYPEDEF struct IoLib_Prv_ActuatorCfgType
+{
+	string name;
+	
+};
+
 /*
  ***************************************************************************************************
  * Variables
  ***************************************************************************************************
 */
 IoLib_Prv_SensorCfgType	IoLib_Prv_SensorCfg[IOLIB_NUM_SENSOR_MAX];
+
+IoLib_Prv_ActuatorCfgType IoLib_Prv_ActuatorCfg[IOLIB_NUM_ACTUATOR_MAX];
 
 /*
  ***************************************************************************************************
@@ -67,7 +75,6 @@ IoLib_Prv_SensorCfgType	IoLib_Prv_SensorCfg[IOLIB_NUM_SENSOR_MAX];
 */
 INLINE IoLib_SensorType IoLib_Prv_ReadSensorType(IoLib_PortSensorType Port)
 {
-	/* HINTS : NO*/
 	return IOLIB_SENSOR_TYPE_NONE;
 }
 
@@ -76,6 +83,33 @@ INLINE IoLib_SensorType IoLib_Prv_ReadSensorType(IoLib_PortSensorType Port)
  * Services
  ***************************************************************************************************
 */
+
+Std_ReturnType IoLib_DeclareActuator(IoLib_PortActuatorType Port, string Name)
+{
+	/* Declaration of local variables */
+	Std_ReturnType stRetVal;
+	
+	/* Initialize variables with default value */
+	stRetVal = E_OK;					/*operation successful*/
+
+	if (Port < IOLIB_NUM_ACTUATOR_MAX)
+	{
+		IoLib_Prv_ActuatorCfg[Port].name = Name;
+	}
+	else
+	{
+		/* On port index is NOT valid, Return error */
+		stRetVal = E_NOT_OK;
+		
+		/* Trace error in Det if required */
+		#if (DEM_DEV_ERROR_DETECT == STD_ON)
+		Det_ReportError(IOLIB_MODULE_ID, 0, IOLIB_DECLAREACTUATOR_ID, IOLIB_E_PARAM_DATA);
+		#endif		
+	}
+	
+	return stRetVal;
+}
+
 Std_ReturnType IoLib_DeclareSensor(IoLib_PortSensorType Port, string Name, IoLib_SensorType Type, IoLib_SensorMode Mode)
 {
 	/* Declaration of local variables */
@@ -106,6 +140,9 @@ Std_ReturnType IoLib_DeclareSensor(IoLib_PortSensorType Port, string Name, IoLib
 	
 	return stRetVal;
 }
+
+
+
 
 /**
  * \ingroup IoLib

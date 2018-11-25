@@ -90,6 +90,7 @@
 #define IOLIB_SETSENSORTYPE_ID				0x04
 #define IOLIB_DECLARESENSOR_ID				0x05
 #define IOLIB_SETSENSORMONITORING_ID		0x06
+#define IOLIB_DECLAREACTUATOR_ID			0x07
 
 /** @} */ // end of IOLIB_Apis
 
@@ -106,6 +107,7 @@ Std_ReturnType IoLib_GetSensorType(IoLib_PortSensorType Port, P2VAR(IoLib_Sensor
 Std_ReturnType IoLib_SetSensorMode(IoLib_PortSensorType Port, IoLib_SensorMode Mode);
 Std_ReturnType IoLib_SetSensorType(IoLib_PortSensorType Port, IoLib_SensorType Type);
 
-
+Std_ReturnType IoLib_DeclareActuator(IoLib_PortActuatorType Port, string Name);
+Std_ReturnType IoLib_DeclareSensor(IoLib_PortSensorType Port, string Name, IoLib_SensorType Type, IoLib_SensorMode Mode);
 
 #endif /*IOLIB_H*/
