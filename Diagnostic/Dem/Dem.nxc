@@ -143,6 +143,7 @@ uint8 Dem_idxPrimaryMemoryEntry;
  *  \remark
  */
 Sys_MutexType Dem_IntFaultHndlMutex;
+Sys_MutexType Dem_DeclaredEventMutex;
 
 Sys_MutexType Dem_stEventBufferMutex;
 
@@ -707,45 +708,46 @@ void Dem_ReportErrorStatus(Dem_EventIdType EventId, Dem_EventStatusType EventSta
 
 /**
  * \ingroup Dem
- * \brief	Control the internal debounce counter/timer
+ * \brief	Decalre a new Dem Event
  *
- * The event qualification will not be affected by these debounce state changes. This API is available for
- * BSW modules as soon as Dem_PreInit has been completed.
+ * The events already declared would not be affected by the new declaration
  * \param	EventId		Identification of an event by assigned EventId
- * \param	DebounceResetStatus : Freeze or reset the internal debounce counter/timer of the specified event
- * \return	Std_ReturnType
- *				E_OK: get of debouncing status per event state successful
- *				E_NOT_OK: get of debouncing per event state failed
+ * \param	name : User name of new Dem event to be used for display (length is maximum 16)
+ * \param	ComponentId : Identification of a DemComponent
+ * \param	DebAlgorithm : Debounce algorithm to be applied for new Dem Event
+ * \return	Dem_EventIdType : Identification of the event by newly created EventId if operation succeeds ; otherwise 0xFFFF
  * \remarks
  * \see	None
  * \par Autosar standard
- * SWS_Dem_00683, SWS_Dem_00684, SWS_Dem_00364, SWS_Dem_00370, SWS_Dem_00684, SWS_Dem_01108
+ * Dynamic declaration of event is an addition to Autosar to fit Mars framework needings
 */
-Std_ReturnType Dem_DeclareEvent(string name, uint8 component, uint8 stDebAlgorithm)
+Dem_EventIdType Dem_DeclareEvent(string name, uint8 ComponentId, uint8 DebAlgorithm)
 {
 	/* Declaration of local variables */
-	Std_ReturnType stRetVal;
 	uint8 numEvent;
 	
 	/* Initialize variables with default value */
-	stRetVal = E_OK;/*operation sucessful*/
+	numEvent = -1;/*operation failed*/
 	
 	if (ctDeclaredEvent < DEM_NUM_CFG_EVENT_MAX)
 	{
+		/* Update current number of declared event */
+		Sys_AcquireLock(Dem_DeclaredEventMutex);
 		numEvent = ctDeclaredEvent;
 		ctDeclaredEvent ++;
+		Sys_ReleaseLock(Dem_DeclaredEventMutex);
 		
 		/**/
 		Dem_Prv_EventParameters[numEvent].name = name;
-		Dem_Prv_EventParameters[numEvent].idxComponentRef = component;
-		Dem_Prv_EventParameters[numEvent].stDebAlgorithm = stDebAlgorithm;
+		Dem_Prv_EventParameters[numEvent].idxComponentRef = ComponentId;
+		Dem_Prv_EventParameters[numEvent].stDebAlgorithm = DebAlgorithm;
 	}
 	else
 	{
-		stRetVal = E_NOT_OK;
+		/**/
 	}
 	
-	return stRetVal;
+	return numEvent;
 }
 
 /**
