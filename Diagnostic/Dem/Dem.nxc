@@ -42,6 +42,12 @@
  ***************************************************************************************************
 */
 
+TYPEDEF struct Dem_ComponentType
+{
+	string name;
+	
+};
+
 TYPEDEF struct Dem_EventParameterType
 {
 	string name;						//name of event as declared by owner
@@ -88,8 +94,10 @@ TYPEDEF struct Dem_FreezeFrame_t
  ***************************************************************************************************
 */
 
+uint8 ctDeclaredComponent;
 uint8 ctDeclaredEvent;
 Dem_EventParameterType Dem_Prv_EventParameters[DEM_NUM_CFG_EVENT_MAX];
+Dem_ComponentType Dem_Prv_Components[DEM_NUM_CFG_COMPONENT_MAX];
 
 
 
@@ -708,10 +716,50 @@ void Dem_ReportErrorStatus(Dem_EventIdType EventId, Dem_EventStatusType EventSta
 
 /**
  * \ingroup Dem
+ * \brief	Decalre a new Dem Component
+ *
+ * The components already declared would not be affected by the new declaration
+ * \param	name : User name of new Dem component to be used for display (length is maximum 16)
+ * \return	uint8 : Identification of the component by newly created ComponentId if operation succeeds ; otherwise 0xFF
+ * \remarks
+ * \see	None
+ * \par Autosar standard
+ * Dynamic declaration of component is an addition to Autosar to fit Mars framework needings
+*/
+Dem_EventIdType Dem_DeclareComponent(string name)
+{
+	/* Declaration of local variables */
+	uint8 numComponent;
+	
+	/* Initialize variables with default value */
+	numComponent = 0xFF;/*operation failed*/
+	
+	if (ctDeclaredEvent < DEM_NUM_CFG_COMPONENT_MAX)
+	{
+		/* Update current number of declared event */
+		Sys_AcquireLock(Dem_DeclaredEventMutex);
+		numComponent = ctDeclaredComponent;
+		ctDeclaredComponent ++;
+		Sys_ReleaseLock(Dem_DeclaredEventMutex);
+		
+		/**/
+		Dem_ComponentType[numComponent].name = name;
+	}
+	else
+	{
+		/**/
+	}
+	
+	return numEvent;
+}
+
+
+
+/**
+ * \ingroup Dem
  * \brief	Decalre a new Dem Event
  *
  * The events already declared would not be affected by the new declaration
- * \param	EventId		Identification of an event by assigned EventId
  * \param	name : User name of new Dem event to be used for display (length is maximum 16)
  * \param	ComponentId : Identification of a DemComponent
  * \param	DebAlgorithm : Debounce algorithm to be applied for new Dem Event
@@ -749,6 +797,7 @@ Dem_EventIdType Dem_DeclareEvent(string name, uint8 ComponentId, uint8 DebAlgori
 	
 	return numEvent;
 }
+
 
 /**
  * \ingroup Dem
